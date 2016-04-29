@@ -330,8 +330,26 @@ int visionair_control_thread_main(int argc, char *argv[])
 				/* get the system status and the flight mode we're in */
 				orb_copy(ORB_ID(vehicle_status), vstatus_sub, &vstatus);
 
+
+                if(pos_updated)
+                {
+                    orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &global_pos);
+                }
+
+               // warnx("att.roll = %f, attsp.rollbody = %f, p.roll_p=%f\n", (double)(att.roll*1000.0f), (double)att_sp.roll_body, (double)p.roll_p);
+
+                control_heading(&global_pos, &global_sp, &att, &att_sp);
+                control_attitude(&att_sp, &att, &rates_sp, &actuators);
+
+                actuators.control[0] = 0.5;
+                actuators.control[1] = 0.5;
+                actuators.control[2] = 0.5;
+                actuators.control[3] = 0.5;
+
 				/* publish rates */
 				orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+
+                //warnx("set acuators0 = %f; 1 = %f; 2 = %f; 3 = %f\n", (double)actuators.control[0], (double)actuators.control[1],(double)actuators.control[2],(double)actuators.control[3]);
 
 				/* sanity check and publish actuator outputs */
 				if (isfinite(actuators.control[0]) &&

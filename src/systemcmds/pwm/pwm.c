@@ -663,7 +663,8 @@ pwm_main(int argc, char *argv[])
 
 						} else if (phase == 1) {
 							/* ramp - depending how steep it is this ramp will look instantaneous on the output */
-							val = idle + (full - idle) * (phase_maxcount / (float)phase_counter);
+                            //val = idle + (full - idle) * (phase_maxcount / (float)phase_counter);  cai change
+                            val = idle + (full - idle) * ((float)phase_counter / phase_maxcount);
 
 						} else {
 							val = off;

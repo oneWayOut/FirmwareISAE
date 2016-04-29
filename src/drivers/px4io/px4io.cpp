@@ -3351,6 +3351,82 @@ test(void)
 	}
 }
 
+void testcai(void)
+{
+    int		fd0;
+    int     fd1;
+    unsigned	servo_count = 3;
+    unsigned	pwm_value = 1000;
+    int		direction = 1;
+    int		ret;
+
+    const char* pwm_dev0 = "/dev/pwm_output0";
+    const char* pwm_dev1 = "/dev/pwm_output1";
+
+    fd0 = open(pwm_dev0, 0, 1);
+    fd1 = open(pwm_dev1, 0, 1);
+
+    if (fd0 < 0) {
+        err(1, "failed to open device0");
+    }
+    if(fd1<0)
+    {
+        err(1,"failed to open device1");
+    }
+
+
+
+    struct pollfd fds;
+
+    fds.fd = 0; /* stdin */
+
+    fds.events = POLLIN;
+
+    warnx("Press CTRL-C or 'c' to abort.");
+
+    for (;;) {
+
+        for(unsigned i=0; i<servo_count; i++)
+        {
+            ioctl(fd0, PWM_SERVO_SET((int)i), (int)pwm_value);
+            ioctl(fd1, PWM_SERVO_SET((int)i), (int)pwm_value);
+        }
+
+        usleep(10000);
+
+        if (direction > 0) {
+            if (pwm_value < 2000) {
+                pwm_value++;
+
+            } else {
+                direction = -1;
+            }
+
+        } else {
+            if (pwm_value > 1000) {
+                pwm_value--;
+
+            } else {
+                direction = 1;
+            }
+        }
+
+        /* Check if user wants to quit */
+        char c;
+        ret = poll(&fds, 1, 0);
+
+        if (ret > 0) {
+
+            read(0, &c, 1);
+
+            if (c == 0x03 || c == 0x63 || c == 'q') {
+                warnx("User abort\n");
+                exit(0);
+            }
+        }
+    }
+}
+
 void
 monitor(void)
 {
@@ -3732,6 +3808,9 @@ px4io_main(int argc, char *argv[])
 	if (!strcmp(argv[1], "test")) {
 		test();
 	}
+    if (!strcmp(argv[1], "testcai")) {
+        testcai();
+    }
 
 	if (!strcmp(argv[1], "monitor")) {
 		monitor();
