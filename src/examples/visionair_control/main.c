@@ -43,6 +43,10 @@
 #include <systemlib/systemlib.h>
 #include <systemlib/err.h>
 
+/*cai for pwm control*/
+#include <sys/ioctl.h>
+#include "drivers/drv_pwm_output.h"
+
 /* process-specific header files */
 #include "params.h"
 
@@ -99,12 +103,17 @@ void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const st
 void control_heading(const struct vehicle_global_position_s *pos, const struct position_setpoint_s *sp,
 		     const struct vehicle_attitude_s *att, struct vehicle_attitude_setpoint_s *att_sp);
 
+void pwm_outtest(struct manual_control_setpoint_s *manual_sp);
+
 /* Variables */
 static bool thread_should_exit = false;		/**< Daemon exit flag */
 static bool thread_running = false;		/**< Daemon status flag */
 static int deamon_task;				/**< Handle of deamon task / thread */
 static struct params p;
 static struct param_handles ph;
+
+/* cai pwm control */
+static int pwm_fd = 0;
 
 void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,
 		      struct vehicle_rates_setpoint_s *rates_sp,
@@ -130,6 +139,7 @@ void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const st
 	 *
 	 *    ...
 	 */
+
 
 	/*
 	 * Calculate roll error and apply P gain
@@ -167,6 +177,36 @@ void control_heading(const struct vehicle_global_position_s *pos, const struct p
 		att_sp->roll_body = 0.6f;
 	}
 }
+
+/**
+ * pwm output test from only the remote controller
+ * @param
+ */
+void pwm_outtest(struct manual_control_setpoint_s *manual_sp)
+{
+	int ret = 0;
+	unsigned pwm_value[6] = {0};
+
+    /*use the throttle to test motor*/
+    pwm_value[0] = (unsigned)((manual_sp->z+1.0f)*1000.0f);
+    pwm_value[1] = pwm_value[0];
+
+    /*use only the pitch input to test servo*/
+    pwm_value[2] = (unsigned)((manual_sp->x+3.0f)*500.0f);
+    pwm_value[3] = pwm_value[2];
+    pwm_value[4] = pwm_value[2];
+    pwm_value[5] = pwm_value[2];
+
+
+    for(unsigned i = 0; i<6; i++)
+    {
+        ret = ioctl(pwm_fd, PWM_SERVO_SET(i), pwm_value[i]);
+        if (ret != OK) {
+            err(1, "PWM_SERVO_SET(%d)", i);
+        }
+    }
+}
+
 
 /* Main Thread */
 int visionair_control_thread_main(int argc, char *argv[])
@@ -259,6 +299,9 @@ int visionair_control_thread_main(int argc, char *argv[])
 		{ .fd = att_sub, .events = POLLIN }
 	};
 
+	/* open for ioctl only */
+	pwm_fd = open(PWM_OUTPUT0_DEVICE_PATH, 0);
+
 	while (!thread_should_exit) {
 
 		/*
@@ -319,6 +362,10 @@ int visionair_control_thread_main(int argc, char *argv[])
 					/* get the RC (or otherwise user based) input */
 				{
 					orb_copy(ORB_ID(manual_control_setpoint), manual_sp_sub, &manual_sp);
+                    //cai test for read pwm input
+                    if (verbose) {
+                        warnx("manual input x=%f, y=%f, z=%f, r=%f;\n", (double)manual_sp.x, (double)manual_sp.y, (double)manual_sp.z, (double)manual_sp.r);
+                    }
 				}
 
 				/* check if the throttle was ever more than 50% - go later only to failsafe if yes */
@@ -340,6 +387,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 
                 control_heading(&global_pos, &global_sp, &att, &att_sp);
                 control_attitude(&att_sp, &att, &rates_sp, &actuators);
+                pwm_outtest(&manual_sp);
 
                 actuators.control[0] = 0.5;
                 actuators.control[1] = 0.5;
@@ -356,7 +404,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 				    isfinite(actuators.control[1]) &&
 				    isfinite(actuators.control[2]) &&
 				    isfinite(actuators.control[3])) {
-					orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+					//orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
 
 					if (verbose) {
 						warnx("published");
@@ -377,6 +425,8 @@ int visionair_control_thread_main(int argc, char *argv[])
 	orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
 
 	fflush(stdout);
+
+	close(pwm_fd);
 
 	return 0;
 }

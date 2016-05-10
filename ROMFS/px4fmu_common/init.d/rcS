@@ -872,6 +872,36 @@ fi
 # XXX potentially unset all script variables.
 unset TUNE_ERR
 
+# CAI. I want to reset pwm here. Because there is no airspeed sensor in Visionair, 
+# I can't use fixed wing frame. So I use 4001_quad_x in VisionAir;
+if param compare SYS_AUTOSTART 4001
+then
+	echo "cai add customized config and tasks"
+	#configure pwm first
+	#TODO: these lines seems have no effect to pwm!! Do it later in other ways.
+	pwm rate -g 0 -r 400
+	pwm rate -g 1 -r 50
+	pwm rate -g 2 -r 50
+
+	pwm min -c 123456 -p 1000
+	pwm max -c 123456 -p 2000
+
+	pwm failsafe -c 12 -p 900
+	pwm failsafe -c 3456 -p 1500
+
+
+	# stop and start the tasks 
+	mc_att_control stop
+	mc_pos_control stop
+
+	# launch the task in NSH
+	#ex_visionair_control start
+else
+	echo "cai not 4001"
+fi
+
+
+
 # Boot is complete, inform MAVLink app(s) that the system is now fully up and running
 mavlink boot_complete
 
