@@ -878,7 +878,7 @@ if param compare SYS_AUTOSTART 4001
 then
 	echo "cai add customized config and tasks"
 	#configure pwm first
-	#TODO: these lines seems have no effect to pwm!! Do it later in other ways.
+	#TODO: these lines seems have no effect to pwm!! reset pwm later in other ways.
 	pwm rate -g 0 -r 400
 	pwm rate -g 1 -r 50
 	pwm rate -g 2 -r 50

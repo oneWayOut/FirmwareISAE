@@ -34,8 +34,9 @@
 #include <uORB/topics/actuator_controls_2.h>
 #include <uORB/topics/actuator_controls_3.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
-#include <uORB/topics/vehicle_global_position.h>
+#include <uORB/topics/vehicle_local_position.h>  //changed by cai
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/control_state.h>   //added by cai
 #include <systemlib/param/param.h>
 #include <systemlib/pid/pid.h>
 #include <geo/geo.h>
@@ -103,7 +104,9 @@ void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const st
 void control_heading(const struct vehicle_global_position_s *pos, const struct position_setpoint_s *sp,
 		     const struct vehicle_attitude_s *att, struct vehicle_attitude_setpoint_s *att_sp);
 
-void pwm_outtest(struct manual_control_setpoint_s *manual_sp);
+
+void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
+	     const struct vehicle_local_position_s *plocal_pos, const struct vehicle_attitude_s * att);
 
 /* Variables */
 static bool thread_should_exit = false;		/**< Daemon exit flag */
@@ -179,14 +182,19 @@ void control_heading(const struct vehicle_global_position_s *pos, const struct p
 }
 
 /**
- * pwm output test from only the remote controller
+ * pwm output test based on the estimator data
  * @param
  */
-void pwm_outtest(struct manual_control_setpoint_s *manual_sp)
+void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
+	     const struct vehicle_local_position_s *plocal_pos, const struct vehicle_attitude_s * att)
 {
 	int ret = 0;
 	unsigned pwm_value[6] = {0};
 
+	float v_z = 0.0;    // m/s
+    float roll = 0.0;   // degree
+
+#if 0
     /*use the throttle to test motor*/
     pwm_value[0] = (unsigned)((manual_sp->z+1.0f)*1000.0f);
     pwm_value[1] = pwm_value[0];
@@ -196,6 +204,33 @@ void pwm_outtest(struct manual_control_setpoint_s *manual_sp)
     pwm_value[3] = pwm_value[2];
     pwm_value[4] = pwm_value[2];
     pwm_value[5] = pwm_value[2];
+#endif
+
+    roll  = att->roll*180.0f/3.1415926f;
+
+    if (roll >= 20.0f)
+        roll = 20.0f;
+    else if(roll <= -20.0f)
+        roll  = -20.0f;
+    else
+        { ;}
+
+    v_z = plocal_pos->vz;
+    if(v_z >= 1.0f)
+        v_z = 1.0f;
+    else if(v_z <= -1.0f)
+        v_z = -1.0f;
+    else
+        { ;}
+
+    pwm_value[0] = (unsigned)((roll+60.0f)*25.0f);
+    pwm_value[1] = pwm_value[0];
+
+    pwm_value[2] = (unsigned)((v_z+3.0f)*500.0f);
+    pwm_value[3] = pwm_value[2];
+    pwm_value[4] = pwm_value[2];
+    pwm_value[5] = pwm_value[2];
+
 
 
     for(unsigned i = 0; i<6; i++)
@@ -268,6 +303,10 @@ int visionair_control_thread_main(int argc, char *argv[])
 	struct position_setpoint_s global_sp;
 	memset(&global_sp, 0, sizeof(global_sp));
 
+	//added by cai
+	struct vehicle_local_position_s local_pos;
+	memset(&local_pos, 0, sizeof(local_pos));
+
 	/* output structs - this is what is sent to the mixer */
 	struct actuator_controls_s actuators;
 	memset(&actuators, 0, sizeof(actuators));
@@ -293,10 +332,13 @@ int visionair_control_thread_main(int argc, char *argv[])
 	int global_sp_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
 	int param_sub = orb_subscribe(ORB_ID(parameter_update));
 
+	int local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+
 	/* Setup of loop */
 
-	struct pollfd fds[2] = {{ .fd = param_sub, .events = POLLIN },
-		{ .fd = att_sub, .events = POLLIN }
+	struct pollfd fds[3] = {{ .fd = param_sub, .events = POLLIN },
+		{ .fd = att_sub, .events = POLLIN },
+		{ .fd = local_pos_sub, .events = POLLIN }
 	};
 
 	/* open for ioctl only */
@@ -314,7 +356,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 		 * This design pattern makes the controller also agnostic of the attitude
 		 * update speed - it runs as fast as the attitude updates with minimal latency.
 		 */
-		int ret = poll(fds, 2, 500);
+		int ret = poll(fds, 3, 500);
 
 		if (ret < 0) {
 			/*
@@ -335,6 +377,12 @@ int visionair_control_thread_main(int argc, char *argv[])
 
 				/* if a param update occured, re-read our parameters */
 				parameters_update(&ph, &p);
+			}
+
+			if (fds[2].revents & POLLIN)
+			{
+				orb_copy(ORB_ID(vehicle_local_position), local_pos_sub, &local_pos);
+
 			}
 
 			/* only run controller if attitude changed */
@@ -387,7 +435,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 
                 control_heading(&global_pos, &global_sp, &att, &att_sp);
                 control_attitude(&att_sp, &att, &rates_sp, &actuators);
-                pwm_outtest(&manual_sp);
+                pwm_outtest(&manual_sp, &local_pos, &att);
 
                 actuators.control[0] = 0.5;
                 actuators.control[1] = 0.5;

@@ -13,7 +13,6 @@ ekf_att_pos_estimator start
 #
 #fw_att_control start
 #fw_pos_control_l1 start
-ex_visionair_control start
 
 #
 # Start Land Detector
