@@ -1,0 +1,35 @@
+CAI_VisionAir /
+TODO,change something in file 4001_quad_x to set the channels and the mixer;
+and change settings(PWM, some other things that I don't know) in rc.mc_defaults, or use my own settings???
+TODO, also some doubts in Visionair code, about the output channel????
+============================
+
+Aileron mixer
+-------------
+One output - would be easy to add support for 2 servos
+
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 0  10000  10000      0 -10000  10000
+
+Elevator mixer
+------------
+
+M: 1
+O:       10000   10000      0 -10000  10000
+S: 0 1  -10000  -10000      0 -10000  10000
+
+Rudder mixer
+------------
+
+M: 1
+O:       10000   10000      0 -10000  10000
+S: 0 2  -10000  -10000      0 -10000  10000
+
+Motor speed mixer
+-----------------
+
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 3      0  20000 -10000 -10000  10000
+

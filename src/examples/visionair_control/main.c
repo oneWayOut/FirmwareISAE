@@ -433,17 +433,29 @@ int visionair_control_thread_main(int argc, char *argv[])
 
                // warnx("att.roll = %f, attsp.rollbody = %f, p.roll_p=%f\n", (double)(att.roll*1000.0f), (double)att_sp.roll_body, (double)p.roll_p);
 
-                control_heading(&global_pos, &global_sp, &att, &att_sp);
-                control_attitude(&att_sp, &att, &rates_sp, &actuators);
-                pwm_outtest(&manual_sp, &local_pos, &att);
+               // control_heading(&global_pos, &global_sp, &att, &att_sp);
+               // control_attitude(&att_sp, &att, &rates_sp, &actuators);
+               // pwm_outtest(&manual_sp, &local_pos, &att);
 
-                actuators.control[0] = 0.5;
-                actuators.control[1] = 0.5;
-                actuators.control[2] = 0.5;
-                actuators.control[3] = 0.5;
+
+
+
+
+
+
+				/* publish actuator controls */
+                actuators.control[0] = manual_sp.y;
+                actuators.control[1] = manual_sp.x;
+                actuators.control[2] = manual_sp.r;
+                actuators.control[3] = manual_sp.z;
+				actuators.timestamp = hrt_absolute_time();
+                actuators.timestamp_sample = actuators.timestamp;
+
+
+
 
 				/* publish rates */
-				orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+                orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
 
                 //warnx("set acuators0 = %f; 1 = %f; 2 = %f; 3 = %f\n", (double)actuators.control[0], (double)actuators.control[1],(double)actuators.control[2],(double)actuators.control[3]);
 
@@ -452,7 +464,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 				    isfinite(actuators.control[1]) &&
 				    isfinite(actuators.control[2]) &&
 				    isfinite(actuators.control[3])) {
-					//orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+                    orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
 
 					if (verbose) {
 						warnx("published");

@@ -13,6 +13,9 @@
 
 sh /etc/init.d/rc.mc_defaults
 
-set MIXER quad_x
+# changed by CAI
+#set MIXER quad_x
+set MIXER cai_visionair_quad_x
+echo "use cai_visionair mixer instead"
 
 set PWM_OUT 1234
