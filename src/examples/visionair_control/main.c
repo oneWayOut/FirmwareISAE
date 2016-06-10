@@ -47,6 +47,9 @@
 /* process-specific header files */
 #include "params.h"
 
+
+#define PI 3.1415926536f
+
 /* Prototypes */
 
 /**
@@ -70,35 +73,7 @@ int visionair_control_thread_main(int argc, char *argv[]);
  */
 static void usage(const char *reason);
 
-/**
- * Control roll and pitch angle.
- *
- * This very simple roll and pitch controller takes the current roll angle
- * of the system and compares it to a reference. Pitch is controlled to zero and yaw remains
- * uncontrolled (tutorial code, not intended for flight).
- *
- * @param att_sp The current attitude setpoint - the values the system would like to reach.
- * @param att The current attitude. The controller should make the attitude match the setpoint
- * @param rates_sp The angular rate setpoint. This is the output of the controller.
- */
-void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,
-		      struct vehicle_rates_setpoint_s *rates_sp,
-		      struct actuator_controls_s *actuators);
 
-/**
- * Control heading.
- *
- * This very simple heading to roll angle controller outputs the desired roll angle based on
- * the current position of the system, the desired position (the setpoint) and the current
- * heading.
- *
- * @param pos The current position of the system
- * @param sp The current position setpoint
- * @param att The current attitude
- * @param att_sp The attitude setpoint. This is the output of the controller
- */
-void control_heading(const struct vehicle_global_position_s *pos, const struct position_setpoint_s *sp,
-		     const struct vehicle_attitude_s *att, struct vehicle_attitude_setpoint_s *att_sp);
 
 
 void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
@@ -114,68 +89,17 @@ static struct param_handles ph;
 /* cai pwm control */
 static int pwm_fd = 0;
 
-void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,
-		      struct vehicle_rates_setpoint_s *rates_sp,
-		      struct actuator_controls_s *actuators)
-{
-
-	/*
-	 * The PX4 architecture provides a mixer outside of the controller.
-	 * The mixer is fed with a default vector of actuator controls, representing
-	 * moments applied to the vehicle frame. This vector
-	 * is structured as:
-	 *
-	 * Control Group 0 (attitude):
-	 *
-	 *    0  -  roll   (-1..+1)
-	 *    1  -  pitch  (-1..+1)
-	 *    2  -  yaw    (-1..+1)
-	 *    3  -  thrust ( 0..+1)
-	 *    4  -  flaps  (-1..+1)
-	 *    ...
-	 *
-	 * Control Group 1 (payloads / special):
-	 *
-	 *    ...
-	 */
 
 
-	/*
-	 * Calculate roll error and apply P gain
-	 */
-	float roll_err = att->roll - att_sp->roll_body;
-	actuators->control[0] = roll_err * p.roll_p;
+static float SEUIL_HAUT_GAZ_MODE2 = 0.65f;   //TODO: change the variables' name
+static float SEUIL_BAS_GAZ_MODE2  = 0.35f;
+static float GAZ_BASCUL = 0.0f;
 
-	/*
-	 * Calculate pitch error and apply P gain
-	 */
-	float pitch_err = att->pitch - att_sp->pitch_body;
-	actuators->control[1] = pitch_err * p.pitch_p;
-}
+static float cmd_1_maxK[4] = {1.0f, 1.45f, 2.0f, 0.25f}; //max_phic, max_tetc, max_psipc, max_vzc
 
-void control_heading(const struct vehicle_global_position_s *pos, const struct position_setpoint_s *sp,
-		     const struct vehicle_attitude_s *att, struct vehicle_attitude_setpoint_s *att_sp)
-{
 
-	/*
-	 * Calculate heading error of current position to desired position
-	 */
 
-	float bearing = get_bearing_to_next_waypoint(pos->lat, pos->lon, sp->lat, sp->lon);
 
-	/* calculate heading error */
-	float yaw_err = att->yaw - bearing;
-	/* apply control gain */
-	att_sp->roll_body = yaw_err * p.hdng_p;
-
-	/* limit output, this commonly is a tuning parameter, too */
-	if (att_sp->roll_body < -0.6f) {
-		att_sp->roll_body = -0.6f;
-
-	} else if (att_sp->roll_body > 0.6f) {
-		att_sp->roll_body = 0.6f;
-	}
-}
 
 /**
  * pwm output test based on the estimator data
@@ -184,58 +108,49 @@ void control_heading(const struct vehicle_global_position_s *pos, const struct p
 void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
 	     const struct vehicle_local_position_s *plocal_pos, const struct vehicle_attitude_s * att)
 {
-	int ret = 0;
-	unsigned pwm_value[6] = {0};
+	static float Hpc = 0.0f;   //Altitude  ???
 
-	float v_z = 0.0;    // m/s
-    float roll = 0.0;   // degree
+	static float cmd_1[4] = {0.0f};  //roll, pitch, yaw, throttle :  PHIC, TETC, PSIC, GAZC    
+	static float cmd_2[4] = {};      //com_phi, com_tet, com_psi
 
-#if 0
-    /*use the throttle to test motor*/
-    pwm_value[0] = (unsigned)((manual_sp->z+1.0f)*1000.0f);
-    pwm_value[1] = pwm_value[0];
 
-    /*use only the pitch input to test servo*/
-    pwm_value[2] = (unsigned)((manual_sp->x+3.0f)*500.0f);
-    pwm_value[3] = pwm_value[2];
-    pwm_value[4] = pwm_value[2];
-    pwm_value[5] = pwm_value[2];
-#endif
+	/***************    calculate: PHIC, TETC, PSIC, GAZC       ********************/
 
-    roll  = att->roll*180.0f/3.1415926f;
+	cmd_1[0] =  manual_sp->y * cmd_1_maxK[0];
+	cmd_1[1] =  PI/2 + manual_sp->x * cmd_1_maxK[1];
+	cmd_1[2] += (manual_sp->r * cmd_1_maxK[2])*dT;   //cai TODO: dT unknown?????
+	//TODO:  mod(cmd_1)  ??????
+	//
+	
+	if (manual_sp->z > SEUIL_HAUT_GAZ_MODE2)
+	{
+		Hpc += (manual_sp->z - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * cmd_1_maxK[3] * dT
+	}
+	else if (manual_sp->z < SEUIL_HAUT_GAZ_MODE2)
+	{
+		if (cmd_1[3] > 0.1)
+		{
+			Hpc -= (SEUIL_BAS_GAZ_MODE2 - manual_sp->z)/(SEUIL_BAS_GAZ_MODE2 - 0) * cmd_1_maxK[3] * dT;
+		}
+	}
+	else   //????
+		;
 
-    if (roll >= 20.0f)
-        roll = 20.0f;
-    else if(roll <= -20.0f)
-        roll  = -20.0f;
-    else
-        { ;}
 
-    v_z = plocal_pos->vz;
-    if(v_z >= 1.0f)
-        v_z = 1.0f;
-    else if(v_z <= -1.0f)
-        v_z = -1.0f;
-    else
-        { ;}
+	//??????
+	TiGaz += KiHp * (Hpc - Hp) * Dt;
 
-    pwm_value[0] = (unsigned)((roll+60.0f)*25.0f);
-    pwm_value[1] = pwm_value[0];
+	//TODO: vz_acc is vertical speed, nz0 is vertical acc;  both in earth frame;
+	cmd_1[3] = GAZ_BASCUL+ khp * (Hpc - Hp) + TiGaz + kvz * vz_acc + knz0 * nz0 ; 
 
-    pwm_value[2] = (unsigned)((v_z+3.0f)*500.0f);
-    pwm_value[3] = pwm_value[2];
-    pwm_value[4] = pwm_value[2];
-    pwm_value[5] = pwm_value[2];
+
+	/***************    calculate: com_phi, com_tet, com_psi      ********************/
+	// use euler angles, anguler rates, 
 
 
 
-    for(unsigned i = 0; i<6; i++)
-    {
-        ret = ioctl(pwm_fd, PWM_SERVO_SET(i), pwm_value[i]);
-        if (ret != OK) {
-            err(1, "PWM_SERVO_SET(%d)", i);
-        }
-    }
+
+
 }
 
 
@@ -341,7 +256,6 @@ int visionair_control_thread_main(int argc, char *argv[])
 	pwm_fd = open(PWM_OUTPUT0_DEVICE_PATH, 0);
 
 	while (!thread_should_exit) {
-
 		/*
 		 * Wait for a sensor or param update, check for exit condition every 500 ms.
 		 * This means that the execution will block here without consuming any resources,
@@ -427,24 +341,13 @@ int visionair_control_thread_main(int argc, char *argv[])
                     orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &global_pos);
                 }
 
-               // warnx("att.roll = %f, attsp.rollbody = %f, p.roll_p=%f\n", (double)(att.roll*1000.0f), (double)att_sp.roll_body, (double)p.roll_p);
 
-               // control_heading(&global_pos, &global_sp, &att, &att_sp);
-               // control_attitude(&att_sp, &att, &rates_sp, &actuators);
-               // pwm_outtest(&manual_sp, &local_pos, &att);
-
-
-
-
-
-
-
-				/* publish actuator controls */
+                /* publish actuator controls */
                 actuators.control[0] = manual_sp.y;
                 actuators.control[1] = manual_sp.x;
                 actuators.control[2] = manual_sp.r;
                 actuators.control[3] = manual_sp.z;
-				actuators.timestamp = hrt_absolute_time();
+                actuators.timestamp = hrt_absolute_time();
                 actuators.timestamp_sample = actuators.timestamp;
 
 
@@ -457,14 +360,15 @@ int visionair_control_thread_main(int argc, char *argv[])
 
 				/* sanity check and publish actuator outputs */
 				if (isfinite(actuators.control[0]) &&
-				    isfinite(actuators.control[1]) &&
-				    isfinite(actuators.control[2]) &&
-				    isfinite(actuators.control[3])) {
-                    orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+				isfinite(actuators.control[1]) &&
+				isfinite(actuators.control[2]) &&
+				isfinite(actuators.control[3])) {
 
-					if (verbose) {
-						warnx("published");
-					}
+				orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+
+				if (verbose) {
+					warnx("published");
+				}
 				}
 			}
 		}
