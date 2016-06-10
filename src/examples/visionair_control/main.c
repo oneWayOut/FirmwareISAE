@@ -1,35 +1,3 @@
-/****************************************************************************
- *
- *   Copyright (c) 2013, 2014 PX4 Development Team. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name PX4 nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- ****************************************************************************/
 
 /**
  * @file main.c
@@ -62,14 +30,19 @@
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
-#include <uORB/topics/vehicle_global_position.h>
+#include <uORB/topics/vehicle_local_position.h>  //changed by cai
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/control_state.h>   //added by cai
 #include <systemlib/param/param.h>
 #include <systemlib/pid/pid.h>
 #include <geo/geo.h>
 #include <systemlib/perf_counter.h>
 #include <systemlib/systemlib.h>
 #include <systemlib/err.h>
+
+/*cai for pwm control*/
+#include <sys/ioctl.h>
+#include "drivers/drv_pwm_output.h"
 
 /* process-specific header files */
 #include "params.h"
@@ -85,12 +58,12 @@
  * the command line to one particular process or the need for bg/fg
  * ^Z support by the shell.
  */
-__EXPORT int ex_fixedwing_control_main(int argc, char *argv[]);
+__EXPORT int ex_visionair_control_main(int argc, char *argv[]);
 
 /**
  * Mainloop of daemon.
  */
-int fixedwing_control_thread_main(int argc, char *argv[]);
+int visionair_control_thread_main(int argc, char *argv[]);
 
 /**
  * Print the correct usage.
@@ -127,12 +100,19 @@ void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const st
 void control_heading(const struct vehicle_global_position_s *pos, const struct position_setpoint_s *sp,
 		     const struct vehicle_attitude_s *att, struct vehicle_attitude_setpoint_s *att_sp);
 
+
+void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
+	     const struct vehicle_local_position_s *plocal_pos, const struct vehicle_attitude_s * att);
+
 /* Variables */
 static bool thread_should_exit = false;		/**< Daemon exit flag */
 static bool thread_running = false;		/**< Daemon status flag */
 static int deamon_task;				/**< Handle of deamon task / thread */
 static struct params p;
 static struct param_handles ph;
+
+/* cai pwm control */
+static int pwm_fd = 0;
 
 void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,
 		      struct vehicle_rates_setpoint_s *rates_sp,
@@ -158,6 +138,7 @@ void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const st
 	 *
 	 *    ...
 	 */
+
 
 	/*
 	 * Calculate roll error and apply P gain
@@ -196,8 +177,70 @@ void control_heading(const struct vehicle_global_position_s *pos, const struct p
 	}
 }
 
+/**
+ * pwm output test based on the estimator data
+ * @param
+ */
+void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
+	     const struct vehicle_local_position_s *plocal_pos, const struct vehicle_attitude_s * att)
+{
+	int ret = 0;
+	unsigned pwm_value[6] = {0};
+
+	float v_z = 0.0;    // m/s
+    float roll = 0.0;   // degree
+
+#if 0
+    /*use the throttle to test motor*/
+    pwm_value[0] = (unsigned)((manual_sp->z+1.0f)*1000.0f);
+    pwm_value[1] = pwm_value[0];
+
+    /*use only the pitch input to test servo*/
+    pwm_value[2] = (unsigned)((manual_sp->x+3.0f)*500.0f);
+    pwm_value[3] = pwm_value[2];
+    pwm_value[4] = pwm_value[2];
+    pwm_value[5] = pwm_value[2];
+#endif
+
+    roll  = att->roll*180.0f/3.1415926f;
+
+    if (roll >= 20.0f)
+        roll = 20.0f;
+    else if(roll <= -20.0f)
+        roll  = -20.0f;
+    else
+        { ;}
+
+    v_z = plocal_pos->vz;
+    if(v_z >= 1.0f)
+        v_z = 1.0f;
+    else if(v_z <= -1.0f)
+        v_z = -1.0f;
+    else
+        { ;}
+
+    pwm_value[0] = (unsigned)((roll+60.0f)*25.0f);
+    pwm_value[1] = pwm_value[0];
+
+    pwm_value[2] = (unsigned)((v_z+3.0f)*500.0f);
+    pwm_value[3] = pwm_value[2];
+    pwm_value[4] = pwm_value[2];
+    pwm_value[5] = pwm_value[2];
+
+
+
+    for(unsigned i = 0; i<6; i++)
+    {
+        ret = ioctl(pwm_fd, PWM_SERVO_SET(i), pwm_value[i]);
+        if (ret != OK) {
+            err(1, "PWM_SERVO_SET(%d)", i);
+        }
+    }
+}
+
+
 /* Main Thread */
-int fixedwing_control_thread_main(int argc, char *argv[])
+int visionair_control_thread_main(int argc, char *argv[])
 {
 	/* read arguments */
 	bool verbose = false;
@@ -209,7 +252,7 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 	}
 
 	/* welcome user (warnx prints a line, including an appended\n, with variable arguments */
-	warnx("[example fixedwing control] started");
+	warnx("[example visionair control] started");
 
 	/* initialize parameters, first the handles, then the values */
 	parameters_init(&ph);
@@ -256,6 +299,10 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 	struct position_setpoint_s global_sp;
 	memset(&global_sp, 0, sizeof(global_sp));
 
+	//added by cai
+	struct vehicle_local_position_s local_pos;
+	memset(&local_pos, 0, sizeof(local_pos));
+
 	/* output structs - this is what is sent to the mixer */
 	struct actuator_controls_s actuators;
 	memset(&actuators, 0, sizeof(actuators));
@@ -281,11 +328,17 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 	int global_sp_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
 	int param_sub = orb_subscribe(ORB_ID(parameter_update));
 
+	int local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+
 	/* Setup of loop */
 
-	struct pollfd fds[2] = {{ .fd = param_sub, .events = POLLIN },
-		{ .fd = att_sub, .events = POLLIN }
+	struct pollfd fds[3] = {{ .fd = param_sub, .events = POLLIN },
+		{ .fd = att_sub, .events = POLLIN },
+		{ .fd = local_pos_sub, .events = POLLIN }
 	};
+
+	/* open for ioctl only */
+	pwm_fd = open(PWM_OUTPUT0_DEVICE_PATH, 0);
 
 	while (!thread_should_exit) {
 
@@ -299,7 +352,7 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 		 * This design pattern makes the controller also agnostic of the attitude
 		 * update speed - it runs as fast as the attitude updates with minimal latency.
 		 */
-		int ret = poll(fds, 2, 500);
+		int ret = poll(fds, 3, 500);
 
 		if (ret < 0) {
 			/*
@@ -320,6 +373,12 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 
 				/* if a param update occured, re-read our parameters */
 				parameters_update(&ph, &p);
+			}
+
+			if (fds[2].revents & POLLIN)
+			{
+				orb_copy(ORB_ID(vehicle_local_position), local_pos_sub, &local_pos);
+
 			}
 
 			/* only run controller if attitude changed */
@@ -347,6 +406,10 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 					/* get the RC (or otherwise user based) input */
 				{
 					orb_copy(ORB_ID(manual_control_setpoint), manual_sp_sub, &manual_sp);
+                    //cai test for read pwm input
+                    if (verbose) {
+                        warnx("manual input x=%f, y=%f, z=%f, r=%f;\n", (double)manual_sp.x, (double)manual_sp.y, (double)manual_sp.z, (double)manual_sp.r);
+                    }
 				}
 
 				/* check if the throttle was ever more than 50% - go later only to failsafe if yes */
@@ -358,15 +421,46 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 				/* get the system status and the flight mode we're in */
 				orb_copy(ORB_ID(vehicle_status), vstatus_sub, &vstatus);
 
+
+                if(pos_updated)
+                {
+                    orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &global_pos);
+                }
+
+               // warnx("att.roll = %f, attsp.rollbody = %f, p.roll_p=%f\n", (double)(att.roll*1000.0f), (double)att_sp.roll_body, (double)p.roll_p);
+
+               // control_heading(&global_pos, &global_sp, &att, &att_sp);
+               // control_attitude(&att_sp, &att, &rates_sp, &actuators);
+               // pwm_outtest(&manual_sp, &local_pos, &att);
+
+
+
+
+
+
+
+				/* publish actuator controls */
+                actuators.control[0] = manual_sp.y;
+                actuators.control[1] = manual_sp.x;
+                actuators.control[2] = manual_sp.r;
+                actuators.control[3] = manual_sp.z;
+				actuators.timestamp = hrt_absolute_time();
+                actuators.timestamp_sample = actuators.timestamp;
+
+
+
+
 				/* publish rates */
-				orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+                orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+
+                //warnx("set acuators0 = %f; 1 = %f; 2 = %f; 3 = %f\n", (double)actuators.control[0], (double)actuators.control[1],(double)actuators.control[2],(double)actuators.control[3]);
 
 				/* sanity check and publish actuator outputs */
 				if (isfinite(actuators.control[0]) &&
 				    isfinite(actuators.control[1]) &&
 				    isfinite(actuators.control[2]) &&
 				    isfinite(actuators.control[3])) {
-					orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+                    orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
 
 					if (verbose) {
 						warnx("published");
@@ -376,7 +470,7 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 		}
 	}
 
-	printf("[ex_fixedwing_control] exiting, stopping all motors.\n");
+	printf("[ex_visionair_control] exiting, stopping all motors.\n");
 	thread_running = false;
 
 	/* kill all outputs */
@@ -387,6 +481,8 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 	orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
 
 	fflush(stdout);
+
+	close(pwm_fd);
 
 	return 0;
 }
@@ -400,7 +496,7 @@ usage(const char *reason)
 		fprintf(stderr, "%s\n", reason);
 	}
 
-	fprintf(stderr, "usage: ex_fixedwing_control {start|stop|status}\n\n");
+	fprintf(stderr, "usage: ex_visionair_control {start|stop|status}\n\n");
 	exit(1);
 }
 
@@ -412,7 +508,7 @@ usage(const char *reason)
  * The actual stack size should be set in the call
  * to px4_task_spawn_cmd().
  */
-int ex_fixedwing_control_main(int argc, char *argv[])
+int ex_visionair_control_main(int argc, char *argv[])
 {
 	if (argc < 2) {
 		usage("missing command");
@@ -421,17 +517,17 @@ int ex_fixedwing_control_main(int argc, char *argv[])
 	if (!strcmp(argv[1], "start")) {
 
 		if (thread_running) {
-			printf("ex_fixedwing_control already running\n");
+			printf("ex_visionair_control already running\n");
 			/* this is not an error */
 			exit(0);
 		}
 
 		thread_should_exit = false;
-		deamon_task = px4_task_spawn_cmd("ex_fixedwing_control",
+		deamon_task = px4_task_spawn_cmd("ex_visionair_control",
 						 SCHED_DEFAULT,
 						 SCHED_PRIORITY_MAX - 20,
 						 2048,
-						 fixedwing_control_thread_main,
+						 visionair_control_thread_main,
 						 (argv) ? (char *const *)&argv[2] : (char *const *)NULL);
 		thread_running = true;
 		exit(0);
@@ -444,10 +540,10 @@ int ex_fixedwing_control_main(int argc, char *argv[])
 
 	if (!strcmp(argv[1], "status")) {
 		if (thread_running) {
-			printf("\tex_fixedwing_control is running\n");
+			printf("\tex_visionair_control is running\n");
 
 		} else {
-			printf("\tex_fixedwing_control not started\n");
+			printf("\tex_visionair_control not started\n");
 		}
 
 		exit(0);

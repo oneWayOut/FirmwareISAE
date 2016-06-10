@@ -162,7 +162,7 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/example_fixedwing_control
-	#examples/fixedwing_control
+	examples/visionair_control
 
 	# Hardware test
 	#examples/hwtest
