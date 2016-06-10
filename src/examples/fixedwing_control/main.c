@@ -134,6 +134,11 @@ static int deamon_task;				/**< Handle of deamon task / thread */
 static struct params p;
 static struct param_handles ph;
 
+/*cai test mixer */
+static double    control_value = 0.0f;
+static unsigned control_channel  = 0;  
+
+
 void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,
 		      struct vehicle_rates_setpoint_s *rates_sp,
 		      struct actuator_controls_s *actuators)
@@ -361,6 +366,22 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 				/* publish rates */
 				orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
 
+				if (control_channel>=1 && control_channel<=4)
+				{
+					for (int i = 0; i < 4; ++i)
+					{
+						if(i+1 == control_channel)
+							actuators.control[i] = (float)control_value;
+					}
+				}
+				else
+				{
+					for (int i = 0; i < 4; ++i)
+					{
+						actuators.control[i] = 0.0f;
+					}
+				}					
+
 				/* sanity check and publish actuator outputs */
 				if (isfinite(actuators.control[0]) &&
 				    isfinite(actuators.control[1]) &&
@@ -414,6 +435,41 @@ usage(const char *reason)
  */
 int ex_fixedwing_control_main(int argc, char *argv[])
 {
+	char *ep;
+	int ch;
+
+	while ((ch = getopt(argc - 1, &argv[1], "c:v:")) != EOF)
+	{
+		switch(ch)
+		{
+		case 'c':
+			control_channel = strtoul(optarg, &ep, 0);
+			if(control_channel>4||control_channel==0)
+			{
+				printf("set channel error\n");
+				control_channel = 0;
+			}
+			else
+				printf("set channel = %d\n", control_channel); //cai may change type.
+			break;
+		case 'v':
+			control_value = strtod(optarg, &ep);  // cai TODO: change function
+			if (control_value>=-1.0 && control_value<=1.0)
+			{
+				printf("set value =  %d\n", (int)(control_value*100.0));   //cai may scale to int value;
+			}
+			else
+			{
+				printf("set value error\n");
+				control_value = 0.0;
+			}	
+			break;
+			
+		default:
+			break;
+		}
+	}
+
 	if (argc < 2) {
 		usage("missing command");
 	}
@@ -449,6 +505,14 @@ int ex_fixedwing_control_main(int argc, char *argv[])
 		} else {
 			printf("\tex_fixedwing_control not started\n");
 		}
+
+		exit(0);
+	}
+
+	if (!strcmp(argv[1], "set")) 
+	{
+
+		printf("\tset control input\n");
 
 		exit(0);
 	}
