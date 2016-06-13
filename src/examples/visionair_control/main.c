@@ -22,8 +22,8 @@
 #include <time.h>
 #include <drivers/drv_hrt.h>
 #include <uORB/uORB.h>
-#include <uORB/topics/vehicle_global_position.h>
-#include <uORB/topics/position_setpoint_triplet.h>
+#include <uORB/topics/vehicle_global_position.h>  //???
+#include <uORB/topics/position_setpoint_triplet.h>  //??
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
@@ -40,9 +40,6 @@
 #include <systemlib/systemlib.h>
 #include <systemlib/err.h>
 
-/*cai for pwm control*/
-#include <sys/ioctl.h>
-#include "drivers/drv_pwm_output.h"
 
 /* process-specific header files */
 #include "params.h"
@@ -76,8 +73,10 @@ static void usage(const char *reason);
 
 
 
-void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
-	     const struct vehicle_local_position_s *plocal_pos, const struct vehicle_attitude_s * att);
+void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
+	const struct vehicle_local_position_s *pLocal_pos, 
+	const struct control_state_s * pCtrl_state, 
+	struct actuator_controls_s *pActuators);
 
 /* Variables */
 static bool thread_should_exit = false;		/**< Daemon exit flag */
@@ -86,51 +85,57 @@ static int deamon_task;				/**< Handle of deamon task / thread */
 static struct params p;
 static struct param_handles ph;
 
-/* cai pwm control */
-static int pwm_fd = 0;
 
 
-
-static float SEUIL_HAUT_GAZ_MODE2 = 0.65f;   //TODO: change the variables' name
-static float SEUIL_BAS_GAZ_MODE2  = 0.35f;
-static float GAZ_BASCUL = 0.0f;
-
-static float cmd_1_maxK[4] = {1.0f, 1.45f, 2.0f, 0.25f}; //max_phic, max_tetc, max_psipc, max_vzc
-
-
-
-
-
-/**
- * pwm output test based on the estimator data
- * @param
- */
-void pwm_outtest(const struct manual_control_setpoint_s *manual_sp, 
-	     const struct vehicle_local_position_s *plocal_pos, const struct vehicle_attitude_s * att)
+void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
+	const struct vehicle_local_position_s *pLocal_pos, 
+	const struct control_state_s * pCtrl_state, 
+	struct actuator_controls_s *pActuators)
 {
+	static float SEUIL_HAUT_GAZ_MODE2 = 0.65f;   //TODO: change the variables' name
+	static float SEUIL_BAS_GAZ_MODE2  = 0.35f;
+	static float GAZ_BASCUL = 0.0f;
+
+	static float cmd_1_maxK[4] = {1.0f, 1.45f, 2.0f, 0.75f}; //max_phic, max_tetc, max_psipc, max_vzc
+
 	static float Hpc = 0.0f;   //Altitude  ???
 
 	static float cmd_1[4] = {0.0f};  //roll, pitch, yaw, throttle :  PHIC, TETC, PSIC, GAZC    
 	static float cmd_2[4] = {};      //com_phi, com_tet, com_psi
 
 
+	// get dT
+	static uint64_t last_run = 0;
+	float dT = (hrt_absolute_time() - last_run) / 1000000.0f;
+	last_run = hrt_absolute_time();
+
+	/* guard against too small (< 2ms) and too large (> 20ms) dt's */
+	//cai todo: maybe we need to check; as poll timeout in mainloop is 100ms
+	if (dT < 0.002f) {
+		dT = 0.002f;
+	} else if (dT > 0.02f) {
+		dT = 0.02f;
+	}
+
+
 	/***************    calculate: PHIC, TETC, PSIC, GAZC       ********************/
 
-	cmd_1[0] =  manual_sp->y * cmd_1_maxK[0];
-	cmd_1[1] =  PI/2 + manual_sp->x * cmd_1_maxK[1];
-	cmd_1[2] += (manual_sp->r * cmd_1_maxK[2])*dT;   //cai TODO: dT unknown?????
-	//TODO:  mod(cmd_1)  ??????
-	//
+	cmd_1[0] =  pManual_sp->y * cmd_1_maxK[0];         //-1~1
+	cmd_1[1] =  PI/2 + pManual_sp->x * cmd_1_maxK[1];  //
+	cmd_1[2] += (pManual_sp->r * cmd_1_maxK[2])*dT;
+	//TODO:  mod(cmd_1[2])  ??????
+	//TODO: if we want to see these variables in GCS through mavlink, put 
+	//them in vehicle_rates_setpoint or similar msgs that are not used.
 	
-	if (manual_sp->z > SEUIL_HAUT_GAZ_MODE2)
+	if (pManual_sp->z > SEUIL_HAUT_GAZ_MODE2)
 	{
-		Hpc += (manual_sp->z - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * cmd_1_maxK[3] * dT
+		Hpc += (pManual_sp->z - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * cmd_1_maxK[3] * dT
 	}
-	else if (manual_sp->z < SEUIL_HAUT_GAZ_MODE2)
+	else if (pManual_sp->z < SEUIL_HAUT_GAZ_MODE2)
 	{
 		if (cmd_1[3] > 0.1)
 		{
-			Hpc -= (SEUIL_BAS_GAZ_MODE2 - manual_sp->z)/(SEUIL_BAS_GAZ_MODE2 - 0) * cmd_1_maxK[3] * dT;
+			Hpc -= (SEUIL_BAS_GAZ_MODE2 - pManual_sp->z)/(SEUIL_BAS_GAZ_MODE2 - 0) * cmd_1_maxK[3] * dT;
 		}
 	}
 	else   //????
@@ -146,7 +151,7 @@ void pwm_outtest(const struct manual_control_setpoint_s *manual_sp,
 
 	/***************    calculate: com_phi, com_tet, com_psi      ********************/
 	// use euler angles, anguler rates, 
-
+	// 
 
 
 
@@ -191,8 +196,6 @@ int visionair_control_thread_main(int argc, char *argv[])
 	 */
 
 
-
-
 	/*
 	 * Declare and safely initialize all structs to zero.
 	 *
@@ -205,18 +208,22 @@ int visionair_control_thread_main(int argc, char *argv[])
 	memset(&att_sp, 0, sizeof(att_sp));
 	struct vehicle_rates_setpoint_s rates_sp;
 	memset(&rates_sp, 0, sizeof(rates_sp));
-	struct vehicle_global_position_s global_pos;
-	memset(&global_pos, 0, sizeof(global_pos));
-	struct manual_control_setpoint_s manual_sp;
-	memset(&manual_sp, 0, sizeof(manual_sp));
 	struct vehicle_status_s vstatus;
 	memset(&vstatus, 0, sizeof(vstatus));
-	struct position_setpoint_s global_sp;
-	memset(&global_sp, 0, sizeof(global_sp));
+	//cai TODO: the four msgs above may not be useful anymore
+
+
+
+
+
+	struct manual_control_setpoint_s manual_sp;
+	memset(&manual_sp, 0, sizeof(manual_sp));
 
 	//added by cai
 	struct vehicle_local_position_s local_pos;
 	memset(&local_pos, 0, sizeof(local_pos));
+	struct control_state_s ctrl_state;
+	memset(&ctrl_state, 0, sizeof(ctrl_state));
 
 	/* output structs - this is what is sent to the mixer */
 	struct actuator_controls_s actuators;
@@ -236,24 +243,19 @@ int visionair_control_thread_main(int argc, char *argv[])
 	orb_advert_t rates_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &rates_sp);
 
 	/* subscribe to topics. */
-	int att_sub = orb_subscribe(ORB_ID(vehicle_attitude));
-	int global_pos_sub = orb_subscribe(ORB_ID(vehicle_global_position));
-	int manual_sp_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
-	int vstatus_sub = orb_subscribe(ORB_ID(vehicle_status));
-	int global_sp_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
-	int param_sub = orb_subscribe(ORB_ID(parameter_update));
-
-	int local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+	int att_sub        = orb_subscribe(ORB_ID(vehicle_attitude));
+	int manual_sp_sub  = orb_subscribe(ORB_ID(manual_control_setpoint));
+	int vstatus_sub    = orb_subscribe(ORB_ID(vehicle_status));
+	int param_sub      = orb_subscribe(ORB_ID(parameter_update));
+	int local_pos_sub  = orb_subscribe(ORB_ID(vehicle_local_position));
+	int ctrl_state_sub = orb_subscribe(ORB_ID(control_state));
 
 	/* Setup of loop */
 
-	struct pollfd fds[3] = {{ .fd = param_sub, .events = POLLIN },
-		{ .fd = att_sub, .events = POLLIN },
-		{ .fd = local_pos_sub, .events = POLLIN }
+	struct pollfd fds[2] = {{ .fd = param_sub, .events = POLLIN },
+		                 { .fd = _ctrl_state_sub, .events = POLLIN }
 	};
 
-	/* open for ioctl only */
-	pwm_fd = open(PWM_OUTPUT0_DEVICE_PATH, 0);
 
 	while (!thread_should_exit) {
 		/*
@@ -266,7 +268,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 		 * This design pattern makes the controller also agnostic of the attitude
 		 * update speed - it runs as fast as the attitude updates with minimal latency.
 		 */
-		int ret = poll(fds, 3, 500);
+		int ret = poll(fds, 2, 100);
 
 		if (ret < 0) {
 			/*
@@ -274,104 +276,99 @@ int visionair_control_thread_main(int argc, char *argv[])
 			 * but its good design practice to make output an error message.
 			 */
 			warnx("poll error");
-
-		} else if (ret == 0) {
+			usleep(100000);
+			continue;
+		}
+		if (ret == 0) {
 			/* no return value = nothing changed for 500 ms, ignore */
-		} else {
+			warnx("poll timeout visionair");
+			continue;
+		}
 
-			/* only update parameters if they changed */
-			if (fds[0].revents & POLLIN) {
-				/* read from param to clear updated flag (uORB API requirement) */
-				struct parameter_update_s update;
-				orb_copy(ORB_ID(parameter_update), param_sub, &update);
 
-				/* if a param update occured, re-read our parameters */
-				parameters_update(&ph, &p);
-			}
 
-			if (fds[2].revents & POLLIN)
-			{
+		/* only update parameters if they changed */
+		//cai TODO: maybe we need to put some PID parameters here
+		if (fds[0].revents & POLLIN) {
+			/* read from param to clear updated flag (uORB API requirement) */
+			struct parameter_update_s update;
+			orb_copy(ORB_ID(parameter_update), param_sub, &update);
+
+			/* if a param update occured, re-read our parameters */
+			parameters_update(&ph, &p);
+		}
+
+
+		/* only run controller if attitude changed */
+		if (fds[1].revents & POLLIN) {
+
+			/* copy control state topic */
+			orb_copy(ORB_ID(control_state), ctrl_state_sub, &ctrl_state);
+
+
+			/* check for updates in other topics */
+			bool updated = false;
+			
+			orb_check(local_pos_sub, &updated);
+			if (updated) {
 				orb_copy(ORB_ID(vehicle_local_position), local_pos_sub, &local_pos);
-
 			}
 
-			/* only run controller if attitude changed */
-			if (fds[1].revents & POLLIN) {
-
-
-				/* Check if there is a new position measurement or position setpoint */
-				bool pos_updated;
-				orb_check(global_pos_sub, &pos_updated);
-				bool global_sp_updated;
-				orb_check(global_sp_sub, &global_sp_updated);
-				bool manual_sp_updated;
-				orb_check(manual_sp_sub, &manual_sp_updated);
-
-				/* get a local copy of attitude */
-				orb_copy(ORB_ID(vehicle_attitude), att_sub, &att);
-
-				if (global_sp_updated) {
-					struct position_setpoint_triplet_s triplet;
-					orb_copy(ORB_ID(position_setpoint_triplet), global_sp_sub, &triplet);
-					memcpy(&global_sp, &triplet.current, sizeof(global_sp));
-				}
-
-				if (manual_sp_updated)
-					/* get the RC (or otherwise user based) input */
-				{
-					orb_copy(ORB_ID(manual_control_setpoint), manual_sp_sub, &manual_sp);
-                    //cai test for read pwm input
-                    if (verbose) {
-                        warnx("manual input x=%f, y=%f, z=%f, r=%f;\n", (double)manual_sp.x, (double)manual_sp.y, (double)manual_sp.z, (double)manual_sp.r);
-                    }
-				}
-
-				/* check if the throttle was ever more than 50% - go later only to failsafe if yes */
-				if (isfinite(manual_sp.z) &&
-				    (manual_sp.z >= 0.6f) &&
-				    (manual_sp.z <= 1.0f)) {
-				}
-
-				/* get the system status and the flight mode we're in */
-				orb_copy(ORB_ID(vehicle_status), vstatus_sub, &vstatus);
-
-
-                if(pos_updated)
-                {
-                    orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &global_pos);
+			updated = false;
+			orb_check(manual_sp_sub, &updated);
+			if (updated)  /* get the RC (or otherwise user based) input */				
+			{
+				orb_copy(ORB_ID(manual_control_setpoint), manual_sp_sub, &manual_sp);
+                //cai test for read pwm input
+                if (verbose) {
+                    warnx("manual input x=%f, y=%f, z=%f, r=%f;\n", (double)manual_sp.x, (double)manual_sp.y, (double)manual_sp.z, (double)manual_sp.r);
                 }
+			}
 
-
-                /* publish actuator controls */
-                actuators.control[0] = manual_sp.y;
-                actuators.control[1] = manual_sp.x;
-                actuators.control[2] = manual_sp.r;
-                actuators.control[3] = manual_sp.z;
-                actuators.timestamp = hrt_absolute_time();
-                actuators.timestamp_sample = actuators.timestamp;
-
+			//cai: currently we don't need the two msgs below:
+			/* get the system status and the flight mode we're in */
+			//orb_copy(ORB_ID(vehicle_status), vstatus_sub, &vstatus);
+			/* get a local copy of attitude */
+			//orb_copy(ORB_ID(vehicle_attitude), att_sub, &att);
+			//
 
 
 
-				/* publish rates */
-                orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+			//run the controller!!
+			visionair_controller(&manual_sp, &local_pos, &ctrl_state, &actuators);
+			
 
-                //warnx("set acuators0 = %f; 1 = %f; 2 = %f; 3 = %f\n", (double)actuators.control[0], (double)actuators.control[1],(double)actuators.control[2],(double)actuators.control[3]);
+			/* check if the throttle was ever more than 50% - go later only to failsafe if yes */
+			if (isfinite(manual_sp.z) &&
+			    (manual_sp.z >= 0.6f) &&
+			    (manual_sp.z <= 1.0f)) {
+			}
 
-				/* sanity check and publish actuator outputs */
-				if (isfinite(actuators.control[0]) &&
-				isfinite(actuators.control[1]) &&
-				isfinite(actuators.control[2]) &&
-				isfinite(actuators.control[3])) {
+			actuators.timestamp = hrt_absolute_time();
+			actuators.timestamp_sample = actuators.timestamp;
 
-				orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
 
-				if (verbose) {
-					warnx("published");
-				}
-				}
+
+
+			/* publish rates */
+            orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+
+            //warnx("set acuators0 = %f; 1 = %f; 2 = %f; 3 = %f\n", (double)actuators.control[0], (double)actuators.control[1],(double)actuators.control[2],(double)actuators.control[3]);
+
+			/* sanity check and publish actuator outputs */
+			if (isfinite(actuators.control[0]) &&
+			isfinite(actuators.control[1]) &&
+			isfinite(actuators.control[2]) &&
+			isfinite(actuators.control[3])) {
+
+			orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+
+			if (verbose) {
+				warnx("published");
+			}
 			}
 		}
+
 	}
 
 	printf("[ex_visionair_control] exiting, stopping all motors.\n");
@@ -385,8 +382,6 @@ int visionair_control_thread_main(int argc, char *argv[])
 	orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
 
 	fflush(stdout);
-
-	close(pwm_fd);
 
 	return 0;
 }
