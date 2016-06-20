@@ -9,9 +9,11 @@ Install the needed toolchain as [here](http://dev.px4.io/starting-installing-lin
  
 Then clone the code and compile it as below:
 
-git clone https://openforge.isae.fr/git/firmware_px4 
+git clone https://openforge.isae.fr/git/visionair 
 
 cd visionair 
+
+git checkout -b caidev origin/caidev
 
 git submodule update --init --recursive 
 

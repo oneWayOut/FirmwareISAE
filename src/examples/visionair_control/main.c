@@ -45,7 +45,7 @@
 #include "params.h"
 
 
-#define PI 3.1415926536f
+#define PI 3.1415926536f   //TODO, use the original macro.
 
 /* Prototypes */
 
@@ -87,21 +87,83 @@ static struct param_handles ph;
 
 
 
+//Altitude, when switch from mannual mode to altitude mode, we should remember the altitude
+static float Hpc = 0.0f;   
+
+
+
+/**
+ * Limit angle to -PI~PI
+ * @param  angle input angle(rad)
+ * @return       out put angle(rad)
+ */
+static float modAngle(float angle);
+static float modAngle(float angle)
+{
+	int i;
+
+	i = (int)((angle+PI)*0.5f/PI);
+
+	return angle - PI * (float)(i*2);
+}
+
+/**
+ * [q_2_euler quaternion to euler from Quaternion.hpp]
+ * @param data  [quaternion]
+ * @param euler [description]
+ */
+static void q_2_euler(const float data[], float euler[]);
+static void q_2_euler(const float data[], float euler[])
+{
+	euler[0] = atan2f(2.0f * (data[0] * data[1] + data[2] * data[3]), 1.0f - 2.0f * (data[1] * data[1] + data[2] * data[2]));
+	euler[1] = asinf(2.0f * (data[0] * data[2] - data[3] * data[1]));
+	euler[2] = atan2f(2.0f * (data[0] * data[3] + data[1] * data[2]), 1.0f - 2.0f * (data[2] * data[2] + data[3] * data[3]));
+}
+
+
 void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
 	const struct vehicle_local_position_s *pLocal_pos, 
 	const struct control_state_s * pCtrl_state, 
 	struct actuator_controls_s *pActuators)
 {
+
 	static float SEUIL_HAUT_GAZ_MODE2 = 0.65f;   //TODO: change the variables' name
 	static float SEUIL_BAS_GAZ_MODE2  = 0.35f;
 	static float GAZ_BASCUL = 0.0f;
 
-	static float cmd_1_maxK[4] = {1.0f, 1.45f, 2.0f, 0.75f}; //max_phic, max_tetc, max_psipc, max_vzc
+	// commands from remote controller, manual set point;
+	float OrdreRoll     = pManual_sp->y;
+	float OrdrePitch    = pManual_sp->x;
+	float OrdreYaw      = pManual_sp->r;
+	float OrdreThrottle = pManual_sp->z;
 
-	static float Hpc = 0.0f;   //Altitude  ???
 
-	static float cmd_1[4] = {0.0f};  //roll, pitch, yaw, throttle :  PHIC, TETC, PSIC, GAZC    
-	static float cmd_2[4] = {};      //com_phi, com_tet, com_psi
+	//roll, pitch, yaw, (angle commands in earth frame) throttle
+	float PHIC = 0.0f;
+	float TETC = 0.0f;
+	static float PSIC = 0.0f;
+	static float GAZC = 0.0f;
+
+	// coefficient to compute PHIC, TETC, PSIC, GAZC   
+	float max_phic = 1.0f;
+	float max_tetc = 1.57f;
+	float max_psipc = 2.0f;
+	float max_vzc = 0.25f;
+
+	float khp = 0.035f;
+	float kvz = -0.1;
+
+	static float TiGaz = 0.0f; // integrator
+
+	
+
+	float Hp = -pLocal_pos->z;
+	float vz_acc = -pLocal_pos->vz; //TODO, check the direction
+
+
+
+
+	float KiHp = 0.0088f;
 
 
 	// get dT
@@ -110,7 +172,7 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	last_run = hrt_absolute_time();
 
 	/* guard against too small (< 2ms) and too large (> 20ms) dt's */
-	//cai todo: maybe we need to check; as poll timeout in mainloop is 100ms
+	//cai TODO: maybe we need to check; as poll timeout in mainloop is 100ms
 	if (dT < 0.002f) {
 		dT = 0.002f;
 	} else if (dT > 0.02f) {
@@ -120,42 +182,138 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 
 	/***************    calculate: PHIC, TETC, PSIC, GAZC       ********************/
 
-	cmd_1[0] =  pManual_sp->y * cmd_1_maxK[0];         //-1~1
-	cmd_1[1] =  PI/2 + pManual_sp->x * cmd_1_maxK[1];  //
-	cmd_1[2] += (pManual_sp->r * cmd_1_maxK[2])*dT;
-	//TODO:  mod(cmd_1[2])  ??????
+	PHIC =  OrdreRoll * max_phic;         //-1~1
+	TETC =  PI/2 + OrdrePitch * max_tetc;  //
+	PSIC += (OrdreYaw * max_psipc)*dT;
+	PSIC = modAngle(PSIC);  
+
+	// printf("roll = %d, pitch = %d, yaw = %d\t", (int)(pManual_sp->y*1000.0f),(int)(pManual_sp->x*1000.0f),(int)(pManual_sp->r*1000.0f));
+	// printf("PHIC = %d\n", (int)(cmd_1[0]*180.0f*1000.0f/PI));
 	//TODO: if we want to see these variables in GCS through mavlink, put 
 	//them in vehicle_rates_setpoint or similar msgs that are not used.
-	
-	if (pManual_sp->z > SEUIL_HAUT_GAZ_MODE2)
+
+
+	switch(pManual_sp->mode_switch)
 	{
-		Hpc += (pManual_sp->z - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * cmd_1_maxK[3] * dT
-	}
-	else if (pManual_sp->z < SEUIL_HAUT_GAZ_MODE2)
-	{
-		if (cmd_1[3] > 0.1)
+	//TODO: have to check the grammer of below, maybe only supported by CPP file.
+	//case manual_control_setpoint_s::SWITCH_POS_OFF:		// MANUAL
+	case 3:
+		Hpc = Hp;
+		TiGaz = 0.0f;
+		GAZC           = OrdreThrottle ;
+		GAZ_BASCUL     = OrdreThrottle;
+		break;
+	//case manual_control_setpoint_s::SWITCH_POS_MIDDLE:		// ASSIST
+	case 2:
+		if (OrdreThrottle > SEUIL_HAUT_GAZ_MODE2)
 		{
-			Hpc -= (SEUIL_BAS_GAZ_MODE2 - pManual_sp->z)/(SEUIL_BAS_GAZ_MODE2 - 0) * cmd_1_maxK[3] * dT;
+			Hpc += (OrdreThrottle - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * max_vzc * dT;
 		}
+		else if (OrdreThrottle < SEUIL_BAS_GAZ_MODE2)
+		{
+			if (GAZC > 0.1f)
+			{
+				Hpc -= (SEUIL_BAS_GAZ_MODE2 - OrdreThrottle)/(SEUIL_BAS_GAZ_MODE2 - 0) * max_vzc * dT;
+			}
+		}
+		else
+		{
+			;
+		}
+
+		TiGaz += KiHp * (Hpc - Hp) * dT;
+
+		GAZC = GAZ_BASCUL+ khp * (Hpc - Hp) + TiGaz + kvz * vz_acc; 
+
+		break;
+	default :
+		break;
 	}
-	else   //????
-		;
 
-
-	//??????
-	TiGaz += KiHp * (Hpc - Hp) * Dt;
-
-	//TODO: vz_acc is vertical speed, nz0 is vertical acc;  both in earth frame;
-	cmd_1[3] = GAZ_BASCUL+ khp * (Hpc - Hp) + TiGaz + kvz * vz_acc + knz0 * nz0 ; 
 
 
 	/***************    calculate: com_phi, com_tet, com_psi      ********************/
 	// use euler angles, anguler rates, 
-	// 
+	
+ 	//roll pitch yaw commands in UAV frame
+	float com_phi, com_tet, com_psi;
+
+	float euler_angles[3];
+
+	q_2_euler(pCtrl_state->q, euler_angles);
+
+	//euler angles
+	float PHI = euler_angles[0];
+	float TET = euler_angles[1];
+	float PSI = euler_angles[2];
+
+	//and angular rates
+	float P = pCtrl_state->roll_rate;
+	float Q = pCtrl_state->pitch_rate;
+	float R = pCtrl_state->yaw_rate;
+
+	float phip,  psip;
+
+	float sintet = sinf(TET);	
+	float costet = cosf(TET) ;	
+	//float sinphi = sinf(PHI) ;		
+	float cosphi = cosf(PHI) ;
+
+	//proportional coefficients
+	float kphi = 0.8f;
+	float ktet = 0.8f;
+	float kpsi = 1.0f;
+
+	//derivative coefficients
+	float kphip = -0.12f;
+	float kq    = -0.12f;	
+	float kpsip = -0.2f;
 
 
+	float dpsi;
 
+	static int sature = 0;
+	// Pitch angle
+	com_tet = ktet * (TETC - TET) + kq * Q ;
 
+	// Roll angle
+	phip = P*costet + R*sintet ;						//roll derivative
+	com_phi = kphi * (PHIC - PHI) + kphip * phip ;
+
+	// Yaw 
+	psip = (-P*sintet + R*costet)/cosphi ;				//yaw derivative
+	dpsi = modAngle(PSIC - PSI) ;
+
+	if ( (sature == 1) && (dpsi<0) )
+		dpsi += 2*PI ;
+	if ( (sature == -1) && (dpsi>0) )
+		dpsi -= 2*PI ;
+	sature = 0 ;
+	if (dpsi > PI/2)		// Ecrêtage de l'écart à 90°
+	{
+		dpsi = PI/2 ;
+		sature = 1 ;
+	}
+	if (dpsi < - PI/2)
+	{
+		dpsi = -PI/2 ;
+		sature=-1 ;
+	}	
+	
+	com_psi = kpsi * dpsi + kpsip * psip ;
+
+	//COM_ROULIS, COM_TANGAGE, COM_LACET, COM_GAZ, 	
+	pActuators->control[0] = com_phi * costet - com_psi * sintet ;	// roll
+	pActuators->control[1] = com_tet ;
+	pActuators->control[2] = com_phi * sintet + com_psi * costet ;
+
+	//TODO: please be aware that the code below is anti roll disturbation,
+	//and we need to change the mixer also.
+	pActuators->control[3] = GAZC + 0.02f*P;
+	pActuators->control[4] = GAZC - 0.02f*P;
+
+	pActuators->timestamp = hrt_absolute_time();
+	pActuators->timestamp_sample = pActuators->timestamp;
 }
 
 
@@ -243,9 +401,9 @@ int visionair_control_thread_main(int argc, char *argv[])
 	orb_advert_t rates_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &rates_sp);
 
 	/* subscribe to topics. */
-	int att_sub        = orb_subscribe(ORB_ID(vehicle_attitude));
+	//int att_sub        = orb_subscribe(ORB_ID(vehicle_attitude));
 	int manual_sp_sub  = orb_subscribe(ORB_ID(manual_control_setpoint));
-	int vstatus_sub    = orb_subscribe(ORB_ID(vehicle_status));
+	//int vstatus_sub    = orb_subscribe(ORB_ID(vehicle_status));
 	int param_sub      = orb_subscribe(ORB_ID(parameter_update));
 	int local_pos_sub  = orb_subscribe(ORB_ID(vehicle_local_position));
 	int ctrl_state_sub = orb_subscribe(ORB_ID(control_state));
@@ -253,7 +411,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 	/* Setup of loop */
 
 	struct pollfd fds[2] = {{ .fd = param_sub, .events = POLLIN },
-		                 { .fd = _ctrl_state_sub, .events = POLLIN }
+		                 { .fd = ctrl_state_sub, .events = POLLIN }
 	};
 
 
@@ -333,20 +491,14 @@ int visionair_control_thread_main(int argc, char *argv[])
 			//
 
 
-
-			//run the controller!!
-			visionair_controller(&manual_sp, &local_pos, &ctrl_state, &actuators);
-			
-
 			/* check if the throttle was ever more than 50% - go later only to failsafe if yes */
 			if (isfinite(manual_sp.z) &&
 			    (manual_sp.z >= 0.6f) &&
 			    (manual_sp.z <= 1.0f)) {
 			}
 
-			actuators.timestamp = hrt_absolute_time();
-			actuators.timestamp_sample = actuators.timestamp;
-
+			//run the controller!!
+			visionair_controller(&manual_sp, &local_pos, &ctrl_state, &actuators);
 
 
 
