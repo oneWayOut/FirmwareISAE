@@ -76,15 +76,7 @@
 
 /* Prototypes */
 
-/**
- * Daemon management function.
- *
- * This function allows to start / stop the background task (daemon).
- * The purpose of it is to be able to start the controller on the
- * command line, query its status and stop it, without giving up
- * the command line to one particular process or the need for bg/fg
- * ^Z support by the shell.
- */
+
 __EXPORT int ex_fixedwing_control_main(int argc, char *argv[]);
 
 /**
@@ -97,35 +89,6 @@ int fixedwing_control_thread_main(int argc, char *argv[]);
  */
 static void usage(const char *reason);
 
-/**
- * Control roll and pitch angle.
- *
- * This very simple roll and pitch controller takes the current roll angle
- * of the system and compares it to a reference. Pitch is controlled to zero and yaw remains
- * uncontrolled (tutorial code, not intended for flight).
- *
- * @param att_sp The current attitude setpoint - the values the system would like to reach.
- * @param att The current attitude. The controller should make the attitude match the setpoint
- * @param rates_sp The angular rate setpoint. This is the output of the controller.
- */
-void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,
-		      struct vehicle_rates_setpoint_s *rates_sp,
-		      struct actuator_controls_s *actuators);
-
-/**
- * Control heading.
- *
- * This very simple heading to roll angle controller outputs the desired roll angle based on
- * the current position of the system, the desired position (the setpoint) and the current
- * heading.
- *
- * @param pos The current position of the system
- * @param sp The current position setpoint
- * @param att The current attitude
- * @param att_sp The attitude setpoint. This is the output of the controller
- */
-void control_heading(const struct vehicle_global_position_s *pos, const struct position_setpoint_s *sp,
-		     const struct vehicle_attitude_s *att, struct vehicle_attitude_setpoint_s *att_sp);
 
 /* Variables */
 static bool thread_should_exit = false;		/**< Daemon exit flag */
@@ -135,71 +98,10 @@ static struct params p;
 static struct param_handles ph;
 
 /*cai test mixer */
-static double    control_value = 0.0f;
-static unsigned control_channel  = 0;  
+static float    control_value = 0.0f;
+static unsigned control_channel  = 0;
 
 
-void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,
-		      struct vehicle_rates_setpoint_s *rates_sp,
-		      struct actuator_controls_s *actuators)
-{
-
-	/*
-	 * The PX4 architecture provides a mixer outside of the controller.
-	 * The mixer is fed with a default vector of actuator controls, representing
-	 * moments applied to the vehicle frame. This vector
-	 * is structured as:
-	 *
-	 * Control Group 0 (attitude):
-	 *
-	 *    0  -  roll   (-1..+1)
-	 *    1  -  pitch  (-1..+1)
-	 *    2  -  yaw    (-1..+1)
-	 *    3  -  thrust ( 0..+1)
-	 *    4  -  flaps  (-1..+1)
-	 *    ...
-	 *
-	 * Control Group 1 (payloads / special):
-	 *
-	 *    ...
-	 */
-
-	/*
-	 * Calculate roll error and apply P gain
-	 */
-	float roll_err = att->roll - att_sp->roll_body;
-	actuators->control[0] = roll_err * p.roll_p;
-
-	/*
-	 * Calculate pitch error and apply P gain
-	 */
-	float pitch_err = att->pitch - att_sp->pitch_body;
-	actuators->control[1] = pitch_err * p.pitch_p;
-}
-
-void control_heading(const struct vehicle_global_position_s *pos, const struct position_setpoint_s *sp,
-		     const struct vehicle_attitude_s *att, struct vehicle_attitude_setpoint_s *att_sp)
-{
-
-	/*
-	 * Calculate heading error of current position to desired position
-	 */
-
-	float bearing = get_bearing_to_next_waypoint(pos->lat, pos->lon, sp->lat, sp->lon);
-
-	/* calculate heading error */
-	float yaw_err = att->yaw - bearing;
-	/* apply control gain */
-	att_sp->roll_body = yaw_err * p.hdng_p;
-
-	/* limit output, this commonly is a tuning parameter, too */
-	if (att_sp->roll_body < -0.6f) {
-		att_sp->roll_body = -0.6f;
-
-	} else if (att_sp->roll_body > 0.6f) {
-		att_sp->roll_body = 0.6f;
-	}
-}
 
 /* Main Thread */
 int fixedwing_control_thread_main(int argc, char *argv[])
@@ -219,24 +121,6 @@ int fixedwing_control_thread_main(int argc, char *argv[])
 	/* initialize parameters, first the handles, then the values */
 	parameters_init(&ph);
 	parameters_update(&ph, &p);
-
-
-	/*
-	 * PX4 uses a publish/subscribe design pattern to enable
-	 * multi-threaded communication.
-	 *
-	 * The most elegant aspect of this is that controllers and
-	 * other processes can either 'react' to new data, or run
-	 * at their own pace.
-	 *
-	 * PX4 developer guide:
-	 * https://pixhawk.ethz.ch/px4/dev/shared_object_communication
-	 *
-	 * Wikipedia description:
-	 * http://en.wikipedia.org/wiki/Publish–subscribe_pattern
-	 *
-	 */
-
 
 
 
@@ -438,7 +322,7 @@ int ex_fixedwing_control_main(int argc, char *argv[])
 	char *ep;
 	int ch;
 
-	while ((ch = getopt(argc - 1, &argv[1], "c:v:")) != EOF)
+	while ((ch = getopt(argc - 1, &argv[1], "c:v:n:")) != EOF)
 	{
 		switch(ch)
 		{
@@ -454,17 +338,30 @@ int ex_fixedwing_control_main(int argc, char *argv[])
 			break;
 		case 'v':
 			control_value = strtod(optarg, &ep);  // cai TODO: change function
-			if (control_value>=-1.0 && control_value<=1.0)
+			//printf("optarg = %s\n", optarg);
+			if (control_value>=-1.0f && control_value<=1.0f)
 			{
-				printf("set value =  %d\n", (int)(control_value*100.0));   //cai may scale to int value;
+				printf("set value =  %d\n", (int)(control_value*100.0f));   //cai may scale to int value;
 			}
 			else
 			{
 				printf("set value error\n");
 				control_value = 0.0;
-			}	
+			}
 			break;
-			
+		case 'n':       //for negative value input, because 'strtod' recognizes negative value as zero.
+			control_value = -strtod(optarg, &ep);  // cai TODO: change function
+			//printf("optarg = %s\n", optarg);
+			if (control_value>=-1.0f && control_value<=1.0f)
+			{
+				printf("set value =  %d\n", (int)(control_value*100.0f));   //cai may scale to int value;
+			}
+			else
+			{
+				printf("set value error\n");
+				control_value = 0.0;
+			}
+			break;
 		default:
 			break;
 		}
