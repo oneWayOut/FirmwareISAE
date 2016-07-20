@@ -79,6 +79,7 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vision_position_estimate.h>
 #include <uORB/topics/vtol_vehicle_status.h>
+#include <uORB/topics/adc33v_raw.h>  //added by cai
 #include <drivers/drv_rc_input.h>
 #include <drivers/drv_pwm_output.h>
 #include <systemlib/err.h>
@@ -576,6 +577,8 @@ private:
 	MavlinkOrbSubscription *_cpuload_sub;
 	MavlinkOrbSubscription *_battery_status_sub;
 
+	MavlinkOrbSubscription *_adc33v_raw_sub;
+
 	/* do not allow top copying this class */
 	MavlinkStreamSysStatus(MavlinkStreamSysStatus &);
 	MavlinkStreamSysStatus& operator = (const MavlinkStreamSysStatus &);
@@ -584,7 +587,8 @@ protected:
 	explicit MavlinkStreamSysStatus(Mavlink *mavlink) : MavlinkStream(mavlink),
 		_status_sub(_mavlink->add_orb_subscription(ORB_ID(vehicle_status))),
 		_cpuload_sub(_mavlink->add_orb_subscription(ORB_ID(cpuload))),
-		_battery_status_sub(_mavlink->add_orb_subscription(ORB_ID(battery_status)))
+		_battery_status_sub(_mavlink->add_orb_subscription(ORB_ID(battery_status))),
+		_adc33v_raw_sub(_mavlink->add_orb_subscription(ORB_ID(adc33v_raw)))
 	{}
 
 	void send(const hrt_abstime t)
@@ -593,9 +597,12 @@ protected:
 		struct cpuload_s cpuload = {};
 		struct battery_status_s battery_status = {};
 
+		struct adc33v_raw_s adc33v_raw_value = {};
+
 		const bool updated_status = _status_sub->update(&status);
 		const bool updated_cpuload = _cpuload_sub->update(&cpuload);
 		const bool updated_battery = _battery_status_sub->update(&battery_status);
+
 
 		if (updated_status) {
 			if (status.arming_state >= vehicle_status_s::ARMING_STATE_ARMED) {
@@ -618,10 +625,22 @@ protected:
 			// TODO: fill in something useful in the fields below
 			msg.drop_rate_comm = 0;
 			msg.errors_comm = 0;
-			msg.errors_count1 = 0;
-			msg.errors_count2 = 0;
+			//msg.errors_count1 = 0;
+			//msg.errors_count2 = 0;
 			msg.errors_count3 = 0;
 			msg.errors_count4 = 0;
+
+			//added by cai, temporarily fill the adc data in msg to show it in QGC
+			if (_adc33v_raw_sub->update(&adc33v_raw_value))
+			{
+				msg.errors_count1 = adc33v_raw_value.raw_values[0];
+				msg.errors_count2 = adc33v_raw_value.raw_values[1];
+				//printf("errors_count1 = %d; ", (int)(msg.errors_count1));
+				//printf("errors_count1 = %d\n", (int)(msg.errors_count2));
+			}
+			//else
+				//printf("adc sub no new value\n");
+
 
 			mavlink_msg_sys_status_send_struct(_mavlink->get_channel(), &msg);
 

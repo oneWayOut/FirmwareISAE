@@ -1,0 +1,1 @@
+uint16[2] raw_values  # ADC3.3V raw value, 0=PIN4 left, 1=PIN2 right

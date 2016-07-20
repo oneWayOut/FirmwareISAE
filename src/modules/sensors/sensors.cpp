@@ -76,6 +76,7 @@
 #include <drivers/drv_airspeed.h>
 #include <drivers/drv_px4flow.h>
 
+
 #include <systemlib/systemlib.h>
 #include <systemlib/param/param.h>
 #include <systemlib/err.h>
@@ -98,6 +99,8 @@
 #include <uORB/topics/differential_pressure.h>
 #include <uORB/topics/airspeed.h>
 #include <uORB/topics/rc_parameter_map.h>
+
+#include <uORB/topics/adc33v_raw.h>
 
 #include <DevMgr.hpp>
 
@@ -235,6 +238,9 @@ private:
 	orb_advert_t	_airspeed_pub;			/**< airspeed */
 	orb_advert_t	_diff_pres_pub;			/**< differential_pressure */
 
+	//cai
+	orb_advert_t    _adc33v_raw_pub = nullptr;     /** adc3.3v raw value, NOTE: must be initialized to null*/
+
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
 
 	DataValidator	_airspeed_validator;		/**< data validator to monitor airspeed */
@@ -246,6 +252,8 @@ private:
 	struct airspeed_s _airspeed;
 	struct rc_parameter_map_s _rc_parameter_map;
 	float _param_rc_values[rc_parameter_map_s::RC_PARAM_MAP_NCHAN];	/**< parameter values for RC control */
+
+	struct adc33v_raw_s _adc33v_raw;	/* 0=PIN4 left, 1=PIN2 right*/
 
 	math::Matrix<3, 3>	_board_rotation;	/**< rotation matrix for the orientation that the board is mounted */
 	math::Matrix<3, 3>	_mag_rotation[3];	/**< rotation matrix for the orientation that the external mag0 is mounted */
@@ -1671,7 +1679,24 @@ Sensors::adc_poll(struct sensor_combined_s &raw)
 				}
 
 				/* look for specific channels and process the raw voltage to measurement data */
-				if (ADC_BATTERY_VOLTAGE_CHANNEL == buf_adc[i].am_channel) {
+				if (ADC_3_3V_LEFT_CHANNEL == buf_adc[i].am_channel)
+				{
+					_adc33v_raw.raw_values[0] = buf_adc[i].am_data;
+					//printf("leftadc = %d; ", (int)(_adc33v_raw.raw_values[0]));
+				}
+				else if (ADC_3_3V_RIGHT_CHANNEL == buf_adc[i].am_channel) {
+					_adc33v_raw.raw_values[1] = buf_adc[i].am_data;
+
+					//printf("rightadc = %d\n", (int)(_adc33v_raw.raw_values[1]));
+
+					_adc33v_raw.timestamp = hrt_absolute_time();
+					if (_adc33v_raw_pub != nullptr) {
+						orb_publish(ORB_ID(adc33v_raw), _adc33v_raw_pub, &_adc33v_raw);
+					} else {
+						_adc33v_raw_pub = orb_advertise(ORB_ID(adc33v_raw), &_adc33v_raw);
+					}
+				}
+				else if (ADC_BATTERY_VOLTAGE_CHANNEL == buf_adc[i].am_channel) {
 					/* Voltage in volts */
 					bat_voltage_v = (buf_adc[i].am_data * _parameters.battery_voltage_scaling) * _parameters.battery_v_div;
 

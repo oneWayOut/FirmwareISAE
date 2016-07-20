@@ -167,6 +167,10 @@ __BEGIN_DECLS
 #define ADC_5V_RAIL_SENSE		4
 #define ADC_AIRSPEED_VOLTAGE_CHANNEL	15
 
+//refer to: http://ardupilot.org/copter/docs/common-pixhawk-overview.html#common-pixhawk-overview
+#define ADC_3_3V_LEFT_CHANNEL     13  //pin4
+#define ADC_3_3V_RIGHT_CHANNEL    14  //pin2
+
 /* User GPIOs
  *
  * GPIO0-5 are the PWM servo outputs.
