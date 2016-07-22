@@ -113,6 +113,8 @@
 #include <uORB/topics/commander_state.h>
 #include <uORB/topics/cpuload.h>
 
+#include <uORB/topics/adc33v_raw.h>
+
 #include <systemlib/systemlib.h>
 #include <systemlib/param/param.h>
 #include <systemlib/perf_counter.h>
@@ -1201,6 +1203,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 		struct vehicle_land_detected_s land_detected;
 		struct cpuload_s cpuload;
 		struct vehicle_gps_position_s dual_gps_pos;
+
+		struct adc33v_raw_s adc33v_raw;  //added by cai
 	} buf;
 
 	memset(&buf, 0, sizeof(buf));
@@ -1262,6 +1266,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 			struct log_LAND_s log_LAND;
 			struct log_RPL6_s log_RPL6;
 			struct log_LOAD_s log_LOAD;
+
+			struct log_AD33_s log_AD33;
 		} body;
 	} log_msg = {
 		LOG_PACKET_HEADER_INIT(0)
@@ -1312,6 +1318,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 		int land_detected_sub;
 		int commander_state_sub;
 		int cpuload_sub;
+
+		int adc33v_raw_sub;
 	} subs;
 
 	subs.cmd_sub = -1;
@@ -1357,6 +1365,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 	subs.cpuload_sub = -1;
 
 	/* add new topics HERE */
+	subs.adc33v_raw_sub = -1;
 
 
 	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
@@ -1526,6 +1535,18 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_STAT.failsafe = (uint8_t) buf_status.failsafe;
 			log_msg.body.log_STAT.is_rot_wing = (uint8_t)buf_status.is_rotary_wing;
 			LOGBUFFER_WRITE_AND_COUNT(STAT);
+		}
+
+		//added by cai
+		bool adc33raw_updated = false;
+		adc33raw_updated = copy_if_updated(ORB_ID(adc33v_raw), &subs.adc33v_raw_sub, &buf.adc33v_raw);
+
+		if(adc33raw_updated)
+		{
+			log_msg.msg_type = LOG_AD33_MSG;
+			log_msg.body.log_AD33.raw_values[0] = buf.adc33v_raw.raw_values[0];
+			log_msg.body.log_AD33.raw_values[1] = buf.adc33v_raw.raw_values[1];
+			LOGBUFFER_WRITE_AND_COUNT(AD33);
 		}
 
 		/* --- EKF2 REPLAY --- */

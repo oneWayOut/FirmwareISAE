@@ -624,6 +624,13 @@ struct log_LOAD_s {
 	float cpu_load;
 };
 
+
+/* cai ADC3.3v */
+#define LOG_AD33_MSG 62
+struct log_AD33_s {
+	uint16_t raw_values[2];
+};
+
 /********** SYSTEM MESSAGES, ID > 0x80 **********/
 
 /* --- TIME - TIME STAMP --- */
@@ -713,6 +720,7 @@ static const struct log_format_s log_formats[] = {
 	LOG_FORMAT(RPL6, "Qff", "Tasp,inAsp,trAsp"),
 	LOG_FORMAT(LAND, "B", "Landed"),
 	LOG_FORMAT(LOAD, "f", "CPU"),
+	LOG_FORMAT(AD33, "HH", "val0,val1"),
 	/* system-level messages, ID >= 0x80 */
 	/* FMT: don't write format of format message, it's useless */
 	LOG_FORMAT(TIME, "Q", "StartTime"),
