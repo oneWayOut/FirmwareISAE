@@ -1,4 +1,4 @@
-
+  
 /**
  * @file main.c
  *
@@ -72,10 +72,18 @@ static void usage(const char *reason);
 
 
 
-
+/**
+ * VisionAir controller, 
+ * @param pManual_sp  [description]
+ * @param pLocal_pos  [description]
+ * @param pCtrl_state [pro]
+ * @param pAtt        [description]
+ * @param pActuators  [description]
+ */
 void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
 	const struct vehicle_local_position_s *pLocal_pos, 
 	const struct control_state_s * pCtrl_state, 
+	const struct vehicle_attitude_s *pAtt,
 	struct actuator_controls_s *pActuators);
 
 /* Variables */
@@ -100,30 +108,27 @@ static float Hpc = 0.0f;
 static float modAngle(float angle);
 static float modAngle(float angle)
 {
+#if 0  /*this is created by CAI, not work properly for some value. e.g. -1.1*PI  */
 	int i;
 
 	i = (int)((angle+PI)*0.5f/PI);
 
 	return angle - PI * (float)(i*2);
-}
+#endif
 
-/**
- * [q_2_euler quaternion to euler from Quaternion.hpp]
- * @param data  [quaternion]
- * @param euler [description]
- */
-static void q_2_euler(const float data[], float euler[]);
-static void q_2_euler(const float data[], float euler[])
-{
-	euler[0] = atan2f(2.0f * (data[0] * data[1] + data[2] * data[3]), 1.0f - 2.0f * (data[1] * data[1] + data[2] * data[2]));
-	euler[1] = asinf(2.0f * (data[0] * data[2] - data[3] * data[1]));
-	euler[2] = atan2f(2.0f * (data[0] * data[3] + data[1] * data[2]), 1.0f - 2.0f * (data[2] * data[2] + data[3] * data[3]));
-}
+//use the original mod function
+	if (angle > PI)
+		angle += - 2 * PI ;
+	if (angle < - PI)
+		angle += 2 * PI ;
 
+	return angle ;
+}
 
 void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
 	const struct vehicle_local_position_s *pLocal_pos, 
-	const struct control_state_s * pCtrl_state, 
+	const struct control_state_s * pCtrl_state,
+	const struct vehicle_attitude_s *pAtt,
 	struct actuator_controls_s *pActuators)
 {
 
@@ -158,8 +163,7 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	
 
 	float Hp = -pLocal_pos->z;
-	float vz_acc = -pLocal_pos->vz; //TODO, check the direction
-
+	float vz_acc = -pLocal_pos->vz;
 
 
 
@@ -183,7 +187,7 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	/***************    calculate: PHIC, TETC, PSIC, GAZC       ********************/
 
 	PHIC =  OrdreRoll * max_phic;         //-1~1
-	TETC =  PI/2 + OrdrePitch * max_tetc;  //
+	TETC =  OrdrePitch * max_tetc;  //change from 0~170 to -90~80 (degree)
 	PSIC += (OrdreYaw * max_psipc)*dT;
 	PSIC = modAngle(PSIC);  
 
@@ -238,6 +242,8 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
  	//roll pitch yaw commands in UAV frame
 	float com_phi, com_tet, com_psi;
 
+	
+	/*
 	float euler_angles[3];
 
 	q_2_euler(pCtrl_state->q, euler_angles);
@@ -245,7 +251,17 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	//euler angles
 	float PHI = euler_angles[0];
 	float TET = euler_angles[1];
-	float PSI = euler_angles[2];
+	float PSI = euler_angles[2];*/
+
+
+	/*CAI 2016.9.11  compute euler angles from quaternions consumes lots of resource, 
+	use euler angles directly from vehicle_attitude instead*/
+	float PHI = pAtt->roll;
+	float TET = pAtt->pitch;
+	float PSI = pAtt->yaw;
+
+
+	//printf("r,p,y _Q = %.4f, %.4f, %.4f\n", (double)PHI, (double)TET, (double)PSI);
 
 	//and angular rates
 	float P = pCtrl_state->roll_rate;
@@ -277,39 +293,45 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	com_tet = ktet * (TETC - TET) + kq * Q ;
 
 	// Roll angle
-	phip = P*costet + R*sintet ;						//roll derivative
+	phip = P*costet + R*sintet ;  // roll derivative, note changes of the rotation axis, and which is the positive rotation side
 	com_phi = kphi * (PHIC - PHI) + kphip * phip ;
 
 	// Yaw 
-	psip = (-P*sintet + R*costet)/cosphi ;				//yaw derivative
+	psip = (-P*sintet + R*costet)/cosphi ;	//yaw derivative  TODO, why devide by cosphi?????
+	//TODO, devide by cosphi may cause devide by 0 problem
+
 	dpsi = modAngle(PSIC - PSI) ;
 
 	if ( (sature == 1) && (dpsi<0) )
 		dpsi += 2*PI ;
 	if ( (sature == -1) && (dpsi>0) )
 		dpsi -= 2*PI ;
-	sature = 0 ;
+
 	if (dpsi > PI/2)		// Ecrêtage de l'écart à 90°
 	{
 		dpsi = PI/2 ;
 		sature = 1 ;
 	}
-	if (dpsi < - PI/2)
+	else if (dpsi < - PI/2)
 	{
 		dpsi = -PI/2 ;
 		sature=-1 ;
-	}	
+	}
+	else
+		sature = 0;
 	
 	com_psi = kpsi * dpsi + kpsip * psip ;
 
-	//COM_ROULIS, COM_TANGAGE, COM_LACET, COM_GAZ, 	
+	//COM_ROULIS, COM_TANGAGE, COM_LACET, COM_GAZ,
+
+	//yaw command should be positive; note the difference between command and the real attitude
 	pActuators->control[0] = com_phi * costet - com_psi * sintet ;	// roll
 	pActuators->control[1] = com_tet ;
 	pActuators->control[2] = com_phi * sintet + com_psi * costet ;
 
-	//TODO: please be aware that the code below is anti roll disturbation,
+	//please be aware that the code below is anti roll disturbation,
 	//and we need to change the mixer also.
-	pActuators->control[3] = GAZC + 0.02f*P;
+	pActuators->control[3] = GAZC + 0.02f*P;   //0.02 is kgp in original VisionAir sourcecode.
 	pActuators->control[4] = GAZC - 0.02f*P;
 
 	pActuators->timestamp = hrt_absolute_time();
@@ -362,15 +384,16 @@ int visionair_control_thread_main(int argc, char *argv[])
 	 */
 	struct vehicle_attitude_s att;
 	memset(&att, 0, sizeof(att));
+
+
+
 	struct vehicle_attitude_setpoint_s att_sp;
 	memset(&att_sp, 0, sizeof(att_sp));
 	struct vehicle_rates_setpoint_s rates_sp;
 	memset(&rates_sp, 0, sizeof(rates_sp));
 	struct vehicle_status_s vstatus;
 	memset(&vstatus, 0, sizeof(vstatus));
-	//cai TODO: the four msgs above may not be useful anymore
-
-
+	//cai TODO: the 3 msgs above may not be useful anymore
 
 
 
@@ -401,7 +424,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 	orb_advert_t rates_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &rates_sp);
 
 	/* subscribe to topics. */
-	//int att_sub        = orb_subscribe(ORB_ID(vehicle_attitude));
+	int att_sub        = orb_subscribe(ORB_ID(vehicle_attitude));
 	int manual_sp_sub  = orb_subscribe(ORB_ID(manual_control_setpoint));
 	//int vstatus_sub    = orb_subscribe(ORB_ID(vehicle_status));
 	int param_sub      = orb_subscribe(ORB_ID(parameter_update));
@@ -486,9 +509,15 @@ int visionair_control_thread_main(int argc, char *argv[])
 			//cai: currently we don't need the two msgs below:
 			/* get the system status and the flight mode we're in */
 			//orb_copy(ORB_ID(vehicle_status), vstatus_sub, &vstatus);
+
+
 			/* get a local copy of attitude */
-			//orb_copy(ORB_ID(vehicle_attitude), att_sub, &att);
-			//
+			updated = false;
+			orb_check(att_sub, &updated);
+			if (updated)
+			{
+				orb_copy(ORB_ID(vehicle_attitude), att_sub, &att);
+			}
 
 
 			/* check if the throttle was ever more than 50% - go later only to failsafe if yes */
@@ -498,7 +527,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 			}
 
 			//run the controller!!
-			visionair_controller(&manual_sp, &local_pos, &ctrl_state, &actuators);
+			visionair_controller(&manual_sp, &local_pos, &ctrl_state, &att, &actuators);
 
 
 
@@ -603,6 +632,4 @@ int ex_visionair_control_main(int argc, char *argv[])
 	usage("unrecognized command");
 	exit(1);
 }
-
-
 
