@@ -201,14 +201,14 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	{
 	//TODO: have to check the grammer of below, maybe only supported by CPP file.
 	//case manual_control_setpoint_s::SWITCH_POS_OFF:		// MANUAL
-	case 3:
+	case 3:   //direct control of throttle
 		Hpc = Hp;
 		TiGaz = 0.0f;
 		GAZC           = OrdreThrottle ;
 		GAZ_BASCUL     = OrdreThrottle;
 		break;
 	//case manual_control_setpoint_s::SWITCH_POS_MIDDLE:		// ASSIST
-	case 2:
+	case 2:  // control vz speed
 		if (OrdreThrottle > SEUIL_HAUT_GAZ_MODE2)
 		{
 			Hpc += (OrdreThrottle - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * max_vzc * dT;
@@ -230,7 +230,11 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 		GAZC = GAZ_BASCUL+ khp * (Hpc - Hp) + TiGaz + kvz * vz_acc; 
 
 		break;
-	default :
+	default : //just protection in case we switch to a third postion and don't have any throttle commands
+		Hpc = Hp;
+		TiGaz = 0.0f;
+		GAZC           = OrdreThrottle ;
+		GAZ_BASCUL     = OrdreThrottle;
 		break;
 	}
 
@@ -270,14 +274,14 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 
 	float phip,  psip;
 
-	float sintet = sinf(TET);	
-	float costet = cosf(TET) ;	
-	//float sinphi = sinf(PHI) ;		
-	float cosphi = cosf(PHI) ;
+	float sintet = sinf(TET);
+	float costet = cosf(TET);
+	//float sinphi = sinf(PHI) ;
+	//float cosphi = cosf(PHI) ;
 
 	//proportional coefficients
-	float kphi = 0.8f;
-	float ktet = 0.8f;
+	float kphi = 1.0f;
+	float ktet = 1.0f;  //2016.9.12 change kphi and ktet from 0.8 to 1.0
 	float kpsi = 1.0f;
 
 	//derivative coefficients
@@ -297,7 +301,8 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	com_phi = kphi * (PHIC - PHI) + kphip * phip ;
 
 	// Yaw 
-	psip = (-P*sintet + R*costet)/cosphi ;	//yaw derivative  TODO, why devide by cosphi?????
+	//psip = (-P*sintet + R*costet)/cosphi ;	//yaw derivative  TODO, why devide by cosphi?????
+	psip = (-P*sintet + R*costet);
 	//TODO, devide by cosphi may cause devide by 0 problem
 
 	dpsi = modAngle(PSIC - PSI) ;
@@ -331,8 +336,9 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 
 	//please be aware that the code below is anti roll disturbation,
 	//and we need to change the mixer also.
-	pActuators->control[3] = GAZC + 0.02f*P;   //0.02 is kgp in original VisionAir sourcecode.
-	pActuators->control[4] = GAZC - 0.02f*P;
+	//2016.9.16 change P to R as the body coordinates change because of using Pixhawk
+	pActuators->control[3] = GAZC + 0.02f*R;   //0.02 is kgp in original VisionAir sourcecode.
+	pActuators->control[4] = GAZC - 0.02f*R;
 
 	pActuators->timestamp = hrt_absolute_time();
 	pActuators->timestamp_sample = pActuators->timestamp;
