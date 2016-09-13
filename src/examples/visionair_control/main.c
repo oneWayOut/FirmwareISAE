@@ -280,13 +280,13 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	//float cosphi = cosf(PHI) ;
 
 	//proportional coefficients
-	float kphi = 1.0f;
-	float ktet = 1.0f;  //2016.9.12 change kphi and ktet from 0.8 to 1.0
-	float kpsi = 1.0f;
+	float kphi = 2.0f;
+	float ktet = 2.0f;  //2016.9.12 change kphi and ktet from 0.8 to 1.0
+	float kpsi = 1.0f;  
 
 	//derivative coefficients
-	float kphip = -0.12f;
-	float kq    = -0.12f;	
+	float kphip = -0.35f;   //-0.4
+	float kq    = -0.35f;	//-0.4
 	float kpsip = -0.2f;
 
 
@@ -337,8 +337,8 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	//please be aware that the code below is anti roll disturbation,
 	//and we need to change the mixer also.
 	//2016.9.16 change P to R as the body coordinates change because of using Pixhawk
-	pActuators->control[3] = GAZC + 0.02f*R;   //0.02 is kgp in original VisionAir sourcecode.
-	pActuators->control[4] = GAZC - 0.02f*R;
+	pActuators->control[3] = GAZC + 0.03f*R;   //0.02 is kgp in original VisionAir sourcecode.
+	pActuators->control[4] = GAZC - 0.03f*R;
 
 	pActuators->timestamp = hrt_absolute_time();
 	pActuators->timestamp_sample = pActuators->timestamp;
