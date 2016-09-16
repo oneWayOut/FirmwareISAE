@@ -2,12 +2,10 @@
 /**
  * @file main.c
  *
- * Example implementation of a fixed wing attitude controller. This file is a complete
- * fixed wing controller for manual attitude control or auto waypoint control.
- * There is no need to touch any other system components to extend / modify the
- * complete control architecture.
- *
- * @author Lorenz Meier <lm@inf.ethz.ch>
+ * the control law of this file is immigrated from the original control law code of
+ * VisionAir developed by DCAS of ISAE. Note that the hovering mode is the neutral position, 
+ * that means in this code the body frame axises is a bit different.
+ * @author CAI Dongcai	<dacid120@gmail.com>
  */
 
 #include <px4_config.h>
@@ -41,11 +39,11 @@
 #include <systemlib/err.h>
 
 
-/* process-specific header files */
+
 #include "params.h"
 
 
-#define PI 3.1415926536f   //TODO, use the original macro.
+
 
 /* Prototypes */
 
@@ -58,7 +56,7 @@
  * the command line to one particular process or the need for bg/fg
  * ^Z support by the shell.
  */
-__EXPORT int ex_visionair_control_main(int argc, char *argv[]);
+__EXPORT int visionair_control_main(int argc, char *argv[]);
 
 /**
  * Mainloop of daemon.
@@ -80,9 +78,9 @@ static void usage(const char *reason);
  * @param pAtt        [description]
  * @param pActuators  [description]
  */
-void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
-	const struct vehicle_local_position_s *pLocal_pos, 
-	const struct control_state_s * pCtrl_state, 
+static void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
+	const struct vehicle_local_position_s *pLocal_pos,
+	const struct control_state_s * pCtrl_state,
 	const struct vehicle_attitude_s *pAtt,
 	struct actuator_controls_s *pActuators);
 
@@ -90,7 +88,7 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 static bool thread_should_exit = false;		/**< Daemon exit flag */
 static bool thread_running = false;		/**< Daemon status flag */
 static int deamon_task;				/**< Handle of deamon task / thread */
-static struct params p;
+static struct params va_p;        //VisionAir parameters
 static struct param_handles ph;
 
 
@@ -108,25 +106,29 @@ static float Hpc = 0.0f;
 static float modAngle(float angle);
 static float modAngle(float angle)
 {
-#if 0  /*this is created by CAI, not work properly for some value. e.g. -1.1*PI  */
+#if 0  /*this is created by CAI, not work properly for some value. e.g. -1.1*M_PI_F  */
 	int i;
 
-	i = (int)((angle+PI)*0.5f/PI);
+	i = (int)((angle+M_PI_F)*0.5f/M_PI_F);
 
-	return angle - PI * (float)(i*2);
+	return angle - M_PI_F * (float)(i*2);
 #endif
 
 //use the original mod function
-	if (angle > PI)
-		angle += - 2 * PI ;
-	if (angle < - PI)
-		angle += 2 * PI ;
+	if (angle > M_PI_F)
+		angle += - 2 * M_PI_F ;
+	if (angle < - M_PI_F)
+		angle += 2 * M_PI_F ;
 
 	return angle ;
 }
 
-void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
-	const struct vehicle_local_position_s *pLocal_pos, 
+
+
+
+
+static void visionair_controller(const struct manual_control_setpoint_s *pManual_sp, 
+	const struct vehicle_local_position_s *pLocal_pos,
 	const struct control_state_s * pCtrl_state,
 	const struct vehicle_attitude_s *pAtt,
 	struct actuator_controls_s *pActuators)
@@ -136,38 +138,19 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	static float SEUIL_BAS_GAZ_MODE2  = 0.35f;
 	static float GAZ_BASCUL = 0.0f;
 
-	// commands from remote controller, manual set point;
-	float OrdreRoll     = pManual_sp->y;
-	float OrdrePitch    = pManual_sp->x;
-	float OrdreYaw      = pManual_sp->r;
-	float OrdreThrottle = pManual_sp->z;
 
+	//scale the RC inputs (roll, pitch, yaw) to angles(rad)
+	static float scaled_rc_att[3] = {0.0f};
 
-	//roll, pitch, yaw, (angle commands in earth frame) throttle
-	float PHIC = 0.0f;
-	float TETC = 0.0f;
-	static float PSIC = 0.0f;
+	//throttle command
 	static float GAZC = 0.0f;
 
-	// coefficient to compute PHIC, TETC, PSIC, GAZC   
-	float max_phic = 1.0f;
-	float max_tetc = 1.57f;
-	float max_psipc = 2.0f;
-	float max_vzc = 0.25f;
 
-	float khp = 0.035f;
-	float kvz = -0.1;
+	//height integrator
+	static float TiGaz = 0.0f;
 
-	static float TiGaz = 0.0f; // integrator
-
-	
-
-	float Hp = -pLocal_pos->z;
+	float Hp     = -pLocal_pos->z;
 	float vz_acc = -pLocal_pos->vz;
-
-
-
-	float KiHp = 0.0088f;
 
 
 	// get dT
@@ -176,7 +159,6 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	last_run = hrt_absolute_time();
 
 	/* guard against too small (< 2ms) and too large (> 20ms) dt's */
-	//cai TODO: maybe we need to check; as poll timeout in mainloop is 100ms
 	if (dT < 0.002f) {
 		dT = 0.002f;
 	} else if (dT > 0.02f) {
@@ -184,40 +166,37 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 	}
 
 
-	/***************    calculate: PHIC, TETC, PSIC, GAZC       ********************/
+	/***************    calculate: scaled_rc_att,  GAZC       ********************/
+	// scale rc attitude control from input  commands to angles(rad)
+	scaled_rc_att[0] =  pManual_sp->y * va_p.rc_cmd_k[0];         //-1~1
+	scaled_rc_att[1] =  pManual_sp->x * va_p.rc_cmd_k[1];  //change from 0~170 to -90~80 (degree)
+	scaled_rc_att[2] += (pManual_sp->r * va_p.rc_cmd_k[2])*dT;
+	scaled_rc_att[2] = modAngle(scaled_rc_att[2]);
 
-	PHIC =  OrdreRoll * max_phic;         //-1~1
-	TETC =  OrdrePitch * max_tetc;  //change from 0~170 to -90~80 (degree)
-	PSIC += (OrdreYaw * max_psipc)*dT;
-	PSIC = modAngle(PSIC);  
-
-	// printf("roll = %d, pitch = %d, yaw = %d\t", (int)(pManual_sp->y*1000.0f),(int)(pManual_sp->x*1000.0f),(int)(pManual_sp->r*1000.0f));
-	// printf("PHIC = %d\n", (int)(cmd_1[0]*180.0f*1000.0f/PI));
 	//TODO: if we want to see these variables in GCS through mavlink, put 
 	//them in vehicle_rates_setpoint or similar msgs that are not used.
 
-
 	switch(pManual_sp->mode_switch)
 	{
-	//TODO: have to check the grammer of below, maybe only supported by CPP file.
+	//the statement below need C++ support
 	//case manual_control_setpoint_s::SWITCH_POS_OFF:		// MANUAL
 	case 3:   //direct control of throttle
 		Hpc = Hp;
 		TiGaz = 0.0f;
-		GAZC           = OrdreThrottle ;
-		GAZ_BASCUL     = OrdreThrottle;
+		GAZC           = pManual_sp->z;  // pManual_sp->z is RC throttle input. 0~1
+		GAZ_BASCUL     = pManual_sp->z;
 		break;
 	//case manual_control_setpoint_s::SWITCH_POS_MIDDLE:		// ASSIST
-	case 2:  // control vz speed
-		if (OrdreThrottle > SEUIL_HAUT_GAZ_MODE2)
+	case 2:  //throttle is used to control vz speed
+		if (pManual_sp->z > SEUIL_HAUT_GAZ_MODE2)
 		{
-			Hpc += (OrdreThrottle - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * max_vzc * dT;
+			Hpc += (pManual_sp->z - SEUIL_HAUT_GAZ_MODE2) / (1-SEUIL_HAUT_GAZ_MODE2) * va_p.rc_cmd_k[3] * dT;
 		}
-		else if (OrdreThrottle < SEUIL_BAS_GAZ_MODE2)
+		else if (pManual_sp->z < SEUIL_BAS_GAZ_MODE2)
 		{
 			if (GAZC > 0.1f)
 			{
-				Hpc -= (SEUIL_BAS_GAZ_MODE2 - OrdreThrottle)/(SEUIL_BAS_GAZ_MODE2 - 0) * max_vzc * dT;
+				Hpc -= (SEUIL_BAS_GAZ_MODE2 - pManual_sp->z)/(SEUIL_BAS_GAZ_MODE2 - 0) * va_p.rc_cmd_k[3] * dT;
 			}
 		}
 		else
@@ -225,120 +204,84 @@ void visionair_controller(const struct manual_control_setpoint_s *pManual_sp,
 			;
 		}
 
-		TiGaz += KiHp * (Hpc - Hp) * dT;
+		TiGaz += va_p.h_PID[1] * (Hpc - Hp) * dT;
 
-		GAZC = GAZ_BASCUL+ khp * (Hpc - Hp) + TiGaz + kvz * vz_acc; 
+		GAZC = GAZ_BASCUL+ va_p.h_PID[0] * (Hpc - Hp) + TiGaz + va_p.h_PID[2] * vz_acc; 
 
 		break;
-	default : //just protection in case we switch to a third postion and don't have any throttle commands
+	default : //just protection in case we switch to a third postion and don't have any throttle command
 		Hpc = Hp;
 		TiGaz = 0.0f;
-		GAZC           = OrdreThrottle ;
-		GAZ_BASCUL     = OrdreThrottle;
+		GAZC           = pManual_sp->z ;
+		GAZ_BASCUL     = pManual_sp->z;
 		break;
 	}
 
 
 
-	/***************    calculate: com_phi, com_tet, com_psi      ********************/
-	// use euler angles, anguler rates, 
-	
- 	//roll pitch yaw commands in UAV frame
-	float com_phi, com_tet, com_psi;
+	/***************    calculate: com_att      ********************/
+	// input: euler angles, anguler rates.  Using PD control
 
-	
-	/*
-	float euler_angles[3];
-
-	q_2_euler(pCtrl_state->q, euler_angles);
-
-	//euler angles
-	float PHI = euler_angles[0];
-	float TET = euler_angles[1];
-	float PSI = euler_angles[2];*/
+ 	//roll pitch yaw commands (in earth frame or from pilot's view?), there is mixing in roll and yaw depeding on pitch angle
+	float com_att[3] = {0.0f};
 
 
-	/*CAI 2016.9.11  compute euler angles from quaternions consumes lots of resource, 
-	use euler angles directly from vehicle_attitude instead*/
-	float PHI = pAtt->roll;
-	float TET = pAtt->pitch;
-	float PSI = pAtt->yaw;
+	//printf("r,p,y _Q = %.4f, %.4f, %.4f\n", (double)pAtt->roll, (double)pAtt->pitch, (double)pAtt->yaw);
 
 
-	//printf("r,p,y _Q = %.4f, %.4f, %.4f\n", (double)PHI, (double)TET, (double)PSI);
+	float sin_pitch = sinf(pAtt->pitch);
+	float cos_pitch = cosf(pAtt->pitch);
 
-	//and angular rates
-	float P = pCtrl_state->roll_rate;
-	float Q = pCtrl_state->pitch_rate;
-	float R = pCtrl_state->yaw_rate;
+	// Roll command
+	float roll_rate_tmp = pCtrl_state->roll_rate * cos_pitch + pCtrl_state->yaw_rate * sin_pitch ;  // roll derivative, note changes of the rotation axis, and which is the positive rotation side
+	com_att[0] = va_p.att_P[0] * (scaled_rc_att[0] - pAtt->roll) + va_p.att_D[0] * roll_rate_tmp ;
 
-	float phip,  psip;
+	// Pitch command
+	com_att[1] = va_p.att_P[1] * (scaled_rc_att[1] - pAtt->pitch) + va_p.att_D[1] * pCtrl_state->pitch_rate ;
 
-	float sintet = sinf(TET);
-	float costet = cosf(TET);
-	//float sinphi = sinf(PHI) ;
-	//float cosphi = cosf(PHI) ;
-
-	//proportional coefficients
-	float kphi = 2.0f;
-	float ktet = 2.0f;  //2016.9.12 change kphi and ktet from 0.8 to 1.0
-	float kpsi = 1.0f;  
-
-	//derivative coefficients
-	float kphip = -0.35f;   //-0.4
-	float kq    = -0.35f;	//-0.4
-	float kpsip = -0.2f;
-
-
-	float dpsi;
+	// Yaw command
+	float yaw_error = modAngle(scaled_rc_att[2] - pAtt->yaw) ;
 
 	static int sature = 0;
-	// Pitch angle
-	com_tet = ktet * (TETC - TET) + kq * Q ;
+	if ( (sature == 1) && (yaw_error<0) )
+		yaw_error += 2*M_PI_F ;
+	if ( (sature == -1) && (yaw_error>0) )
+		yaw_error -= 2*M_PI_F ;
 
-	// Roll angle
-	phip = P*costet + R*sintet ;  // roll derivative, note changes of the rotation axis, and which is the positive rotation side
-	com_phi = kphi * (PHIC - PHI) + kphip * phip ;
-
-	// Yaw 
-	//psip = (-P*sintet + R*costet)/cosphi ;	//yaw derivative  TODO, why devide by cosphi?????
-	psip = (-P*sintet + R*costet);
-	//TODO, devide by cosphi may cause devide by 0 problem
-
-	dpsi = modAngle(PSIC - PSI) ;
-
-	if ( (sature == 1) && (dpsi<0) )
-		dpsi += 2*PI ;
-	if ( (sature == -1) && (dpsi>0) )
-		dpsi -= 2*PI ;
-
-	if (dpsi > PI/2)		// Ecrêtage de l'écart à 90°
+	if (yaw_error > M_PI_F/2)		// Ecrêtage de l'écart à 90°
 	{
-		dpsi = PI/2 ;
+		yaw_error = M_PI_F/2 ;
 		sature = 1 ;
 	}
-	else if (dpsi < - PI/2)
+	else if (yaw_error < - M_PI_F/2)
 	{
-		dpsi = -PI/2 ;
+		yaw_error = -M_PI_F/2 ;
 		sature=-1 ;
 	}
 	else
+	{
 		sature = 0;
-	
-	com_psi = kpsi * dpsi + kpsip * psip ;
+	}
 
-	//COM_ROULIS, COM_TANGAGE, COM_LACET, COM_GAZ,
+	//yaw_rate_tmp = (-pCtrl_state->roll_rate*sin_pitch + pCtrl_state->yaw_rate*cos_pitch)/cosphi ;	
+	//yaw derivative  TODO, why devide by cosphi????? 
+	float yaw_rate_tmp = (-pCtrl_state->roll_rate * sin_pitch + pCtrl_state->yaw_rate * cos_pitch);
 
-	//yaw command should be positive; note the difference between command and the real attitude
-	pActuators->control[0] = com_phi * costet - com_psi * sintet ;	// roll
-	pActuators->control[1] = com_tet ;
-	pActuators->control[2] = com_phi * sintet + com_psi * costet ;
+	com_att[2] = va_p.att_P[2] * yaw_error + va_p.att_D[2] * yaw_rate_tmp ;
 
-	//please be aware that the code below is anti roll disturbation,
-	//and we need to change the mixer also.
-	//2016.9.16 change P to R as the body coordinates change because of using Pixhawk
-	pActuators->control[3] = GAZC + 0.03f*R;   //0.02 is kgp in original VisionAir sourcecode.
-	pActuators->control[4] = GAZC - 0.03f*R;
+
+
+	/***************    calculate actuator_controls_s, which will be used in mixer ********************/
+	//COM_ROULIS, COM_TANGAGE, COM_LACET, COM_GAZ in the original visionair code
+	//(the commands below are in body frame ?)  note the different coordinate frames(pilot's commands to control)
+	pActuators->control[0] = com_att[0] * cos_pitch - com_att[2] * sin_pitch ;	// roll
+	pActuators->control[1] = com_att[1] ;                                       // pitch
+	pActuators->control[2] = com_att[0] * sin_pitch + com_att[2] * cos_pitch ;  // yaw
+
+	//please be aware that the code below is anti yaw (roll) disturbation,
+	//2016.9.16 change pCtrl_state->roll_rate to pCtrl_state->yaw_rate as the body coordinates change because of using Pixhawk
+	pActuators->control[3] = GAZC + va_p.kgp * pCtrl_state->yaw_rate;   //0.02 is kgp in original VisionAir sourcecode.
+	pActuators->control[4] = GAZC - va_p.kgp * pCtrl_state->yaw_rate;
 
 	pActuators->timestamp = hrt_absolute_time();
 	pActuators->timestamp_sample = pActuators->timestamp;
@@ -358,28 +301,12 @@ int visionair_control_thread_main(int argc, char *argv[])
 	}
 
 	/* welcome user (warnx prints a line, including an appended\n, with variable arguments */
-	warnx("[example visionair control] started");
+	warnx("[visionair control] started");
 
 	/* initialize parameters, first the handles, then the values */
 	parameters_init(&ph);
-	parameters_update(&ph, &p);
+	parameters_update(&ph, &va_p);
 
-
-	/*
-	 * PX4 uses a publish/subscribe design pattern to enable
-	 * multi-threaded communication.
-	 *
-	 * The most elegant aspect of this is that controllers and
-	 * other processes can either 'react' to new data, or run
-	 * at their own pace.
-	 *
-	 * PX4 developer guide:
-	 * https://pixhawk.ethz.ch/px4/dev/shared_object_communication
-	 *
-	 * Wikipedia description:
-	 * http://en.wikipedia.org/wiki/Publish–subscribe_pattern
-	 *
-	 */
 
 
 	/*
@@ -475,14 +402,13 @@ int visionair_control_thread_main(int argc, char *argv[])
 
 
 		/* only update parameters if they changed */
-		//cai TODO: maybe we need to put some PID parameters here
 		if (fds[0].revents & POLLIN) {
 			/* read from param to clear updated flag (uORB API requirement) */
 			struct parameter_update_s update;
 			orb_copy(ORB_ID(parameter_update), param_sub, &update);
 
 			/* if a param update occured, re-read our parameters */
-			parameters_update(&ph, &p);
+			parameters_update(&ph, &va_p);			
 		}
 
 
@@ -558,7 +484,7 @@ int visionair_control_thread_main(int argc, char *argv[])
 
 	}
 
-	printf("[ex_visionair_control] exiting, stopping all motors.\n");
+	printf("[visionair_control] exiting, stopping all motors.\n");
 	thread_running = false;
 
 	/* kill all outputs */
@@ -582,7 +508,7 @@ usage(const char *reason)
 		fprintf(stderr, "%s\n", reason);
 	}
 
-	fprintf(stderr, "usage: ex_visionair_control {start|stop|status}\n\n");
+	fprintf(stderr, "usage: visionair_control {start|stop|status}\n\n");
 	exit(1);
 }
 
@@ -594,7 +520,7 @@ usage(const char *reason)
  * The actual stack size should be set in the call
  * to px4_task_spawn_cmd().
  */
-int ex_visionair_control_main(int argc, char *argv[])
+int visionair_control_main(int argc, char *argv[])
 {
 	if (argc < 2) {
 		usage("missing command");
@@ -603,13 +529,13 @@ int ex_visionair_control_main(int argc, char *argv[])
 	if (!strcmp(argv[1], "start")) {
 
 		if (thread_running) {
-			printf("ex_visionair_control already running\n");
+			printf("visionair_control already running\n");
 			/* this is not an error */
 			exit(0);
 		}
 
 		thread_should_exit = false;
-		deamon_task = px4_task_spawn_cmd("ex_visionair_control",
+		deamon_task = px4_task_spawn_cmd("visionair_control",
 						 SCHED_DEFAULT,
 						 SCHED_PRIORITY_MAX - 20,
 						 2048,
@@ -626,10 +552,10 @@ int ex_visionair_control_main(int argc, char *argv[])
 
 	if (!strcmp(argv[1], "status")) {
 		if (thread_running) {
-			printf("\tex_visionair_control is running\n");
+			printf("\tvisionair_control is running\n");
 
 		} else {
-			printf("\tex_visionair_control not started\n");
+			printf("\tvisionair_control not started\n");
 		}
 
 		exit(0);

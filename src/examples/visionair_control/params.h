@@ -1,56 +1,45 @@
-/****************************************************************************
- *
- *   Copyright (c) 2013 PX4 Development Team. All rights reserved.
- *   Author: Lorenz Meier <lm@inf.ethz.ch>
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name PX4 nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- ****************************************************************************/
-
-/*
- * @file params.h
- *
- * Definition of parameters for fixedwing example
- */
-
 #include <systemlib/param/param.h>
 
 struct params {
-	float hdng_p;
-	float roll_p;
-	float pitch_p;
+	//coeficients used to scale the rc input
+	float rc_cmd_k[4];
+
+	//height PID
+	float h_PID[3];
+
+	//attitude error propotional gain
+	float att_P[3];
+
+	//attitude derivative gain (to real attitude rates, not attitdue error)
+	float att_D[3];
+
+	//anti yaw (originally roll) disturbation in motor channel
+	float kgp;
 };
 
 struct param_handles {
-	param_t hdng_p;
+	param_t rc_roll_k;
+	param_t rc_pitch_k;
+	param_t rc_yaw_k;
+	param_t rc_throttle_k;
+
+	param_t h_p;
+	param_t h_i;
+	param_t h_d;
+
 	param_t roll_p;
 	param_t pitch_p;
+	param_t yaw_p;
+
+	param_t roll_d;
+	param_t pitch_d;
+	param_t yaw_d;
+
+	param_t kgp;
 };
+
+
+
 
 /**
  * Initialize all parameter handles and values
