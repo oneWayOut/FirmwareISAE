@@ -1,33 +1,59 @@
-Coaxial helicopter mixer
-- Two servomotors act on the swashplate (90° angle on the swashplate, decoupled effect on roll and pitch).
-- No collective pitch.
-- One motor per rotor.
-===========================
+This mixer is user defined for visionAir.
+============================
+Channel 1,2 are 400Hz; Channel 3,4,5,6 are 50HZ;
+channel 1 ----- motor up       (MH)
+channel 2 ----- motor down     (MB)
+channel 3 ----- aileron left   (AG)
+channel 4 ----- aileron right  (AD)
+channel 5 ----- aileron top    (AH)
+channel 6 ----- aileron bottom (AB)
 
-Left swashplate servomotor, pitch axis
--------------
+Roll      ----- AH + AB
+Pitch     ----- AG + AD
+Yaw       ----- AH - AB + AG - AD
+Throttle  ----- MB + MH
+
+
+The two mixers below generate a full-range output (-1 to 1) from an input in the (0 - 1)
+range.  Inputs below zero are treated as zero.
+channel 1 (MH) connects to Throttle
+--------------
 M: 1
 O:      10000  10000      0 -10000  10000
-S: 0 1  -10000  -10000      0 -10000  10000
+S: 0 3      0  20000 -10000 -10000  10000
 
-Right swashplate servomotor, roll axis
--------------
+channel 2 (MB) connects to Throttle
+--------------
 M: 1
 O:      10000  10000      0 -10000  10000
-S: 0 0  10000  10000      0 -10000  10000
-
-Upper rotor (CCW)
-Mixing between yaw and thrust
--------------
-M: 2
-O:      10000  10000      0 -10000  10000
-S: 0 2  10000  10000      0 -10000  10000
 S: 0 3      0  20000 -10000 -10000  10000
 
-Lower rotor (CW)
-Mixing between yaw and thrust
--------------
+channel 3 (AG) connects to Pitch + Yaw
+--------------
 M: 2
 O:      10000  10000      0 -10000  10000
-S: 0 2  -10000  -10000      0 -10000  10000
-S: 0 3      0  20000 -10000 -10000  10000
+S: 0 1   9000   9000      0 -10000  10000
+S: 0 2   9000   9000      0 -10000  10000
+
+channel 4 (AD) connects to -Pitch + Yaw
+--------------
+M: 2
+O:       9859  10140   -141 -10000  10000
+S: 0 1  -9000  -9000      0 -10000  10000
+S: 0 2   9000   9000      0 -10000  10000
+
+
+channel 5 (AH) connects to Roll + Yaw
+--------------
+M: 2
+O:      10000  10000      0 -10000  10000
+S: 0 0   9000   9000      0 -10000  10000
+S: 0 2   9000   9000      0 -10000  10000
+
+channel 6 (AB) connects to -Roll + Yaw
+--------------
+M: 2
+O:      10256   9743    256 -10000  10000
+S: 0 0  -9000  -9000      0 -10000  10000
+S: 0 2   9000   9000      0 -10000  10000
+

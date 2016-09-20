@@ -29,19 +29,23 @@ then
 fi
 #---------------------------------------
 
-if mc_att_control start
-then
-else
-	# try the multiplatform version
-	mc_att_control_m start
-fi
 
-if mc_pos_control start
-then
-else
-	# try the multiplatform version
-	mc_pos_control_m start
-fi
+
+# if mc_att_control start
+# then
+# else
+# 	# try the multiplatform version
+# 	mc_att_control_m start
+# fi
+
+# if mc_pos_control start
+# then
+# else
+# 	# try the multiplatform version
+# 	mc_pos_control_m start
+# fi
+# Use VisionAir controller instead
+visionair_control start
 
 #
 # Start Land Detector
