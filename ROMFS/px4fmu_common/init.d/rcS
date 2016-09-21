@@ -894,9 +894,9 @@ unset TUNE_ERR
 
 # added by cai for visionair solution 1
 # set rate
-pwm rate -c 12 -r 400
 pwm rate -c 34 -r 50
-pwm rate -c 56 -r 50
+pwm rate -c 5678 -r 50
+pwm rate -c 12 -r 400
 
 ## Note that the pwm values are computed from test value,
 ## they may need to be recomputed if use another airframe.
