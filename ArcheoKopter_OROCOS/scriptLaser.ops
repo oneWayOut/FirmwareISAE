@@ -1,0 +1,60 @@
+
+#path("/usr/local/lib/orocos/gnulinux/")
+#import("base_components")
+#--------------------------------------
+#here I put my path to go to “libconsommateur...”. You had to find your own path!
+#import("/home/dmia/workspaces/workspaceQtCreator/ORO_COMP_Mav2-buildLocal-build/ORO_COMP_mavlink_bridge/orocos/gnulinux/base_components/libmavlink_bridge-gnulinux.so")
+import("/home/dmia/work/before/ArcheoKopter/ORO_COMP_LDC-build/orocos/gnulinux/LDC/libLDC-gnulinux.so")
+import("/home/dmia/work/before/ArcheoKopter/ORO_COMP_LaserJNPK-build/orocos/gnulinux/LaserJNPK/libLaserJNPK-gnulinux.so")
+require("print")
+
+print.ln("=== Loading components ===")
+#--------------------------------------
+
+loadComponent("las", "ISAE::LaserJNPK")
+loadComponent("ldc", "ISAE::LDC")
+
+#----------------------------------------------------
+print.ln("=== Define activations et priorities ...")
+#----------------------------------------------------
+
+setActivity("las",0.01,1,ORO_SCHED_OTHER)
+setActivity("ldc",0.01,1,ORO_SCHED_OTHER)
+
+#----------------------------------------
+print.ln("=== Connect OROCOS ports ===")
+#----------------------------------------
+var ConnPolicy cp1
+cp1.type = DATA  
+cp1.size = 100    
+
+
+connect("ldc._alt_input" , "las._alt_output", cp1)
+
+#connectPeers("ldc","mav")
+
+
+
+
+#-----------------------------------------------
+#print.ln("=== Connect OROCOS serviess ... ===")
+#-----------------------------------------------
+
+#-----------------------------------------------
+#print.ln("=== Define properties of components")
+#-----------------------------------------------
+
+
+
+#---------------------------------------
+print.ln("===  configuration step ===")
+#---------------------------------------
+las.configure
+ldc.configure
+#---------------------------------------
+print.ln("=== Starting components ===")
+#---------------------------------------
+
+las.start
+ldc.start
+print.ln("=========== END OF INIT ===============")

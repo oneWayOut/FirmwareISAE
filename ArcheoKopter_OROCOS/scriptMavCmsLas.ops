@@ -1,0 +1,70 @@
+
+#path("/usr/local/lib/orocos/gnulinux/")
+#import("base_components")
+#--------------------------------------
+#here I put my path to go to “libconsommateur...”. You had to find your own path!
+import("/home/dmia/Mywork/ArcheoKopter/ORO_COMP_mavlink_bridge-build/orocos/gnulinux/mavlink_bridge/libmavlink_bridge-gnulinux.so")
+import("/home/dmia/Mywork/ArcheoKopter/ORO_COMP_LaserJNPK-build/orocos/gnulinux/LaserJNPK/libLaserJNPK-gnulinux.so")
+import("/home/dmia/Mywork/ArcheoKopter/ORO_COMP_CMS-build/orocos/gnulinux/CMS/libCMS-gnulinux.so")
+require("print")
+
+print.ln("=== Loading components ===")
+#--------------------------------------
+loadComponent("mav", "ISAE::mavlink_bridge")
+loadComponent("cms", "ISAE::CMS")
+loadComponent("las", "ISAE::LaserJNPK")
+#----------------------------------------------------
+print.ln("=== Define activations et priorities ...")
+#----------------------------------------------------
+setActivity("mav",0.01,1,ORO_SCHED_OTHER)
+setActivity("cms",0.01,1,ORO_SCHED_OTHER)
+setActivity("las",0.01,1,ORO_SCHED_OTHER)
+#----------------------------------------
+print.ln("=== Connect OROCOS ports ===")
+#----------------------------------------
+var ConnPolicy cp1
+cp1.type = DATA  
+cp1.size = 100    
+
+connect("cms._attitude_input" , "mav._attitude_output", cp1)
+connect("cms._imu_input" , "mav._imu_output", cp1)
+connect("cms._laser_distance_input" , "las._laser_distance_output", cp1)
+
+
+#var ConnPolicy cp2
+#cp2.type = DATA  
+#cp2.size = 100    
+
+
+
+
+#connectPeers("ldc","mav")
+
+
+
+
+#-----------------------------------------------
+#print.ln("=== Connect OROCOS serviess ... ===")
+#-----------------------------------------------
+
+#-----------------------------------------------
+#print.ln("=== Define properties of components")
+#-----------------------------------------------
+
+
+
+#---------------------------------------
+print.ln("===  configuration step ===")
+#---------------------------------------
+las.configure
+mav.configure
+cms.configure
+
+#---------------------------------------
+print.ln("=== Starting components ===")
+#---------------------------------------
+las.start
+mav.start
+cms.start
+
+print.ln("=========== END OF INIT ===============")

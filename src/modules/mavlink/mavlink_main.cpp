@@ -1930,6 +1930,7 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("GPS_RAW_INT", 5.0f);
 		configure_stream("GLOBAL_POSITION_INT", 50.0f);
 		configure_stream("LOCAL_POSITION_NED", 30.0f);
+		configure_stream("MANUAL_CONTROL", 10.0f);
 		configure_stream("NAMED_VALUE_FLOAT", 10.0f);
 		configure_stream("CAMERA_CAPTURE", 2.0f);
 		configure_stream("HOME_POSITION", 0.5f);

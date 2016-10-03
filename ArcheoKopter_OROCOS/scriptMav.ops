@@ -1,0 +1,76 @@
+
+#path("/usr/local/lib/orocos/gnulinux/")
+#import("base_components")
+#--------------------------------------
+#here I put my path to go to “libconsommateur...”. You had to find your own path!
+import("/home/dmia/Mywork/ArcheoKopter/ORO_COMP_mavlink_bridge-build/orocos/gnulinux/mavlink_bridge/libmavlink_bridge-gnulinux.so")
+import("/home/dmia/Mywork/ArcheoKopter/ORO_COMP_LDC-build/orocos/gnulinux/LDC/libLDC-gnulinux.so")
+import("/home/dmia/Mywork/ArcheoKopter/ORO_COMP_LaserJNPK-build/orocos/gnulinux/LaserJNPK/libLaserJNPK-gnulinux.so")
+require("print")
+
+print.ln("=== Loading components ===")
+#--------------------------------------
+loadComponent("mav", "ISAE::mavlink_bridge")
+loadComponent("ldc", "ISAE::LDC")
+loadComponent("las", "ISAE::LaserJNPK")
+#----------------------------------------------------
+print.ln("=== Define activations et priorities ...")
+#----------------------------------------------------
+setActivity("mav",0.01,1,ORO_SCHED_OTHER)
+setActivity("ldc",0.01,1,ORO_SCHED_OTHER)
+setActivity("las",0.01,1,ORO_SCHED_OTHER)
+#----------------------------------------
+print.ln("=== Connect OROCOS ports ===")
+#----------------------------------------
+var ConnPolicy cp1
+cp1.type = DATA  
+cp1.size = 100    
+
+connect("ldc._attitude_input" , "mav._attitude_output", cp1)
+connect("ldc._imu_input" , "mav._imu_output", cp1)
+connect("mav._direct_control_input" ,"ldc._direct_control_output", cp1)
+connect("mav._attitude_control_input" , "ldc._attitude_control_output", cp1)
+connect("ldc._GPI_Control_input" , "mav._GPI_Control_output", cp1)
+connect("ldc._attitude_control_feedback_input" ,"mav._attitude_control_feedback_output", cp1)
+connect("ldc._battery_input" , "mav._battery_output", cp1)
+connect("ldc._px4_mode_input" , "mav._px4_mode_output", cp1)
+connect("ldc._px4_aux_data_input" , "mav._px4_aux_data_output", cp1)
+connect("ldc._local_position_input" , "mav._local_position_output", cp1)
+
+#var ConnPolicy cp2
+#cp2.type = DATA  
+#cp2.size = 100    
+
+
+connect("ldc._alt_input" , "las._alt_output", cp1)
+
+#connectPeers("ldc","mav")
+
+
+
+
+#-----------------------------------------------
+#print.ln("=== Connect OROCOS serviess ... ===")
+#-----------------------------------------------
+
+#-----------------------------------------------
+#print.ln("=== Define properties of components")
+#-----------------------------------------------
+
+
+
+#---------------------------------------
+print.ln("===  configuration step ===")
+#---------------------------------------
+las.configure
+mav.configure
+ldc.configure
+
+#---------------------------------------
+print.ln("=== Starting components ===")
+#---------------------------------------
+las.start
+mav.start
+ldc.start
+
+print.ln("=========== END OF INIT ===============")

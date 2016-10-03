@@ -1,0 +1,4 @@
+#ifndef STRUCT_DONNEE_H
+#define STRUCT_DONNEE_H
+
+#endif // STRUCT_DONNEE_H

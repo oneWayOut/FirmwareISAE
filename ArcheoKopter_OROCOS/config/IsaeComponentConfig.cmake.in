@@ -1,0 +1,2 @@
+
+set(ISAE_COMPONENTS_HELPER ${CMAKE_INSTALL_PREFIX}/share/isae/cmake)

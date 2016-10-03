@@ -759,7 +759,7 @@ Sensors::parameters_update()
 	const char *paramerr = "FAIL PARM LOAD";
 
 	/* channel mapping */
-	if (param_get(_parameter_handles.rc_map_roll, &(_parameters.rc_map_roll)) != OK) {
+	if (param_get(_parameters.rc_map_roll, &(_parameters.rc_map_roll)) != OK) {
 		warnx("%s", paramerr);
 	}
 
