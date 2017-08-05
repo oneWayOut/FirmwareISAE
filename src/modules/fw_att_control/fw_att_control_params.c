@@ -652,3 +652,17 @@ PARAM_DEFINE_FLOAT(FW_ACRO_Z_MAX, 45);
  * @group FW Attitude Control
  */
 PARAM_DEFINE_FLOAT(FW_RATT_TH, 0.8f);
+
+
+/**
+ * weight for mix yaw in 2 throttle channels
+ *
+ * cdc add for mix yaw in the 2 throttle channels in fly blanket airfram
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 3
+ * @increment 0.005
+ * @group FW Attitude Control
+ */
+PARAM_DEFINE_FLOAT(FW_WEI_IN_YAW, 0.1f);

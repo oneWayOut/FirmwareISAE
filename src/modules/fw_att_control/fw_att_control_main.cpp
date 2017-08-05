@@ -214,6 +214,8 @@ private:
 
 		int32_t bat_scale_en;			/**< Battery scaling enabled */
 
+		float   wei_in_yaw;
+
 	}		_parameters{};			/**< local copies of interesting parameters */
 
 	struct {
@@ -274,6 +276,8 @@ private:
 		param_t vtol_type;
 
 		param_t bat_scale_en;
+
+		param_t fw_wei_in_yaw;
 
 	}		_parameter_handles{};		/**< handles for interesting parameters */
 
@@ -471,6 +475,8 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 
 	_parameter_handles.bat_scale_en = param_find("FW_BAT_SCALE_EN");
 
+	_parameter_handles.fw_wei_in_yaw = param_find("FW_WEI_IN_YAW");
+
 	/* fetch initial parameter values */
 	parameters_update();
 }
@@ -577,6 +583,7 @@ FixedwingAttitudeControl::parameters_update()
 	param_get(_parameter_handles.vtol_type, &_parameters.vtol_type);
 
 	param_get(_parameter_handles.bat_scale_en, &_parameters.bat_scale_en);
+	param_get(_parameter_handles.fw_wei_in_yaw, &_parameters.wei_in_yaw);
 
 	/* pitch control parameters */
 	_pitch_ctrl.set_time_constant(_parameters.p_tc);
@@ -1227,11 +1234,22 @@ FixedwingAttitudeControl::task_main()
 			// FIXME: this should use _vcontrol_mode.landing_gear_pos in the future
 			_actuators.control[7] = _manual.aux3;
 
+			//caiadd  we want INDEX_THROTTLE to left motor;
+			//INDEX_YAW to the right motor;
+			float temp_yaw_wei      = _actuators.control[actuator_controls_s::INDEX_YAW] * _parameters.wei_in_yaw;
+
+			_actuators.control[actuator_controls_s::INDEX_YAW]      = _actuators.control[actuator_controls_s::INDEX_THROTTLE] - temp_yaw_wei;
+			_actuators.control[actuator_controls_s::INDEX_THROTTLE] += temp_yaw_wei;
+
+
 			/* lazily publish the setpoint only once available */
 			_actuators.timestamp = hrt_absolute_time();
 			_actuators.timestamp_sample = _ctrl_state.timestamp;
 			_actuators_airframe.timestamp = hrt_absolute_time();
 			_actuators_airframe.timestamp_sample = _ctrl_state.timestamp;
+
+
+
 
 			/* Only publish if any of the proper modes are enabled */
 			if (_vcontrol_mode.flag_control_rates_enabled ||
