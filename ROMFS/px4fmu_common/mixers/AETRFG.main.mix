@@ -13,18 +13,22 @@ input is inverted between the two servos.
 The scaling factor for roll inputs is adjusted to implement differential travel
 for the elevons.
 
-M: 2
-O:      10000  10000      0 -10000  10000
-S: 0 0  -6000  -6000      0 -10000  10000
-S: 0 1   6500   6500      0 -10000  10000
+Right elevon
 
 M: 2
 O:      10000  10000      0 -10000  10000
-S: 0 0  -6000  -6000      0 -10000  10000
+S: 0 0   6000   6000      0 -10000  10000
+S: 0 1   6500   6500      0 -10000  10000
+
+Left elevon
+
+M: 2
+O:      10000  10000      0 -10000  10000
+S: 0 0   6000   6000      0 -10000  10000
 S: 0 1  -6500  -6500      0 -10000  10000
 
 
-CH3: Motor speed mixer
+CH3: thrust to right motor
 -----------------
 Two scalers total (output, thrust).
 
@@ -35,7 +39,7 @@ M: 1
 O:       10000  10000       0  -10000  10000
 S: 0 3       0  20000  -10000  -10000  10000
 
-CH4: Rudder mixer
+CH4: yaw to left motor
 ------------
 Two scalers total (output, yaw).
 
@@ -46,7 +50,7 @@ endpoints to suit.
 
 M: 1
 O:       10000  10000       0  -10000  10000
-S: 0 2   10000  10000       0  -10000  10000
+S: 0 2   0      20000  -10000  -10000  10000
 
 CH5: Flaps mixer
 ------------

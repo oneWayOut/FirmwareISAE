@@ -1234,8 +1234,9 @@ FixedwingAttitudeControl::task_main()
 			// FIXME: this should use _vcontrol_mode.landing_gear_pos in the future
 			_actuators.control[7] = _manual.aux3;
 
-			//caiadd  we want INDEX_THROTTLE to left motor;
-			//INDEX_YAW to the right motor;
+			//caiadd  we want INDEX_THROTTLE to right motor;
+			//INDEX_YAW to the left motor;
+			//todo need to constraint both the yaw and thrust channel to 0~1
 			float temp_yaw_wei      = _actuators.control[actuator_controls_s::INDEX_YAW] * _parameters.wei_in_yaw;
 
 			_actuators.control[actuator_controls_s::INDEX_YAW]      = _actuators.control[actuator_controls_s::INDEX_THROTTLE] - temp_yaw_wei;
@@ -1247,7 +1248,6 @@ FixedwingAttitudeControl::task_main()
 			_actuators.timestamp_sample = _ctrl_state.timestamp;
 			_actuators_airframe.timestamp = hrt_absolute_time();
 			_actuators_airframe.timestamp_sample = _ctrl_state.timestamp;
-
 
 
 
