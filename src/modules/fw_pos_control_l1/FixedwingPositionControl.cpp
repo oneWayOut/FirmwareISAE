@@ -1525,7 +1525,7 @@ FixedwingPositionControl::task_main()
 	while (!_task_should_exit) {
 
 		/* wait for up to 500ms for data */
-		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
+		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 500);
 
 		/* timed out - periodic check for _task_should_exit, etc. */
 		if (pret == 0) {
@@ -1556,6 +1556,20 @@ FixedwingPositionControl::task_main()
 		/* only run controller if position changed */
 		if ((fds[1].revents & POLLIN) != 0) {
 			perf_begin(_loop_perf);
+
+			static int mycoutner = 0;
+
+			static uint64_t lastTS = 0;
+
+			if (mycoutner%20 == 1)
+			{
+				printf("dt = %llu\n", hrt_absolute_time()-lastTS);
+			}
+
+			lastTS = hrt_absolute_time();
+			mycoutner++;
+
+
 
 			/* load local copies */
 			orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);

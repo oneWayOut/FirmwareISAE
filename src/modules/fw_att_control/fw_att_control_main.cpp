@@ -671,6 +671,7 @@ FixedwingAttitudeControl::global_pos_poll()
 
 	if (global_pos_updated) {
 		orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);
+		printf("global updated.\n");
 	}
 }
 
@@ -800,6 +801,21 @@ FixedwingAttitudeControl::task_main()
 		if (fds[1].revents & POLLIN) {
 			static uint64_t last_run = 0;
 			float deltaT = (hrt_absolute_time() - last_run) / 1000000.0f;
+
+			static int mycounter = 0;
+
+
+
+			if (mycounter%20 == 1)
+			{
+				printf("wa = %llu\n", hrt_absolute_time()-last_run);
+			}
+			mycounter++;
+
+
+
+
+
 			last_run = hrt_absolute_time();
 
 			/* guard against too large deltaT's */
@@ -820,6 +836,11 @@ FixedwingAttitudeControl::task_main()
 			_roll    = euler_angles(0);
 			_pitch   = euler_angles(1);
 			_yaw     = euler_angles(2);
+
+			if (mycounter%20 == 1)
+			{
+				printf("yaw = %.2f\n", (double)_yaw);
+			}
 
 			if (_vehicle_status.is_vtol && _parameters.vtol_type == vtol_type::TAILSITTER) {
 				/* vehicle is a tailsitter, we need to modify the estimated attitude for fw mode
