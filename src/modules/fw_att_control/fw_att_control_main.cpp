@@ -980,6 +980,7 @@ FixedwingAttitudeControl::task_main()
 				/* Use min airspeed to calculate ground speed scaling region.
 				 * Don't scale below gspd_scaling_trim
 				 */
+				//cainote: this is not good because _global_pos msg is not valid if no gps.
 				float groundspeed = sqrtf(_global_pos.vel_n * _global_pos.vel_n +
 							  _global_pos.vel_e * _global_pos.vel_e);
 				float gspd_scaling_trim = (_parameters.airspeed_min * 0.6f);

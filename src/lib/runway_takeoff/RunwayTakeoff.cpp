@@ -98,6 +98,7 @@ void RunwayTakeoff::update(float airspeed, float alt_agl,
 	case RunwayTakeoffState::THROTTLE_RAMP:
 		if (hrt_elapsed_time(&_initialized_time) > _throttle_ramp_time) {
 			_state = RunwayTakeoffState::CLAMPED_TO_RUNWAY;
+			mavlink_log_info(mavlink_log_pub, "#cdcOn my runway");
 		}
 
 		break;
@@ -105,7 +106,7 @@ void RunwayTakeoff::update(float airspeed, float alt_agl,
 	case RunwayTakeoffState::CLAMPED_TO_RUNWAY:
 		if (airspeed > _airspeed_min.get() * _min_airspeed_scaling.get()) {
 			_state = RunwayTakeoffState::TAKEOFF;
-			mavlink_log_info(mavlink_log_pub, "#Takeoff airspeed reached");
+			mavlink_log_info(mavlink_log_pub, "#cdcTakeoff airspeed reached");
 		}
 
 		break;
@@ -123,7 +124,7 @@ void RunwayTakeoff::update(float airspeed, float alt_agl,
 				_start_wp(1) = (float)current_lon;
 			}
 
-			mavlink_log_info(mavlink_log_pub, "#Climbout");
+			mavlink_log_info(mavlink_log_pub, "#cdcClimbout");
 		}
 
 		break;

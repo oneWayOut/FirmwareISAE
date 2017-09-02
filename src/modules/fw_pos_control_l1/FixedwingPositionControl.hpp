@@ -1,56 +1,4 @@
-/****************************************************************************
- *
- *   Copyright (c) 2013-2017 PX4 Development Team. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name PX4 nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- ****************************************************************************/
 
-
-/**
- * @file fw_pos_control_l1_main.c
- * Implementation of a generic position controller based on the L1 norm. Outputs a bank / roll
- * angle, equivalent to a lateral motion (for copters and rovers).
- *
- * Original publication for horizontal control class:
- *    S. Park, J. Deyst, and J. P. How, "A New Nonlinear Guidance Logic for Trajectory Tracking,"
- *    Proceedings of the AIAA Guidance, Navigation and Control
- *    Conference, Aug 2004. AIAA-2004-4900.
- *
- * Original implementation for total energy control class:
- *    Paul Riseborough and Andrew Tridgell, 2013 (code in lib/external_lgpl)
- *
- * More details and acknowledgements in the referenced library headers.
- *
- * @author Lorenz Meier <lm@inf.ethz.ch>
- * @author Thomas Gubler <thomasgubler@gmail.com>
- * @author Andreas Antener <andreas@uaventure.com>
- */
 
 #ifndef FIXEDWINGPOSITIONCONTROL_HPP_
 #define FIXEDWINGPOSITIONCONTROL_HPP_
@@ -65,25 +13,30 @@
 #include "Landingslope.hpp"
 
 #include <drivers/drv_hrt.h>
-#include <ecl/l1/ecl_l1_pos_controller.h>
-#include <external_lgpl/tecs/tecs.h>
+//#include <ecl/l1/ecl_l1_pos_controller.h>
+//#include <external_lgpl/tecs/tecs.h>
 #include <geo/geo.h>
-#include <launchdetection/LaunchDetector.h>
+//#include <launchdetection/LaunchDetector.h>
 #include <mathlib/mathlib.h>
-#include <runway_takeoff/RunwayTakeoff.h>
+//#include <runway_takeoff/RunwayTakeoff.h>
 #include <systemlib/perf_counter.h>
 #include <uORB/topics/control_state.h>
 #include <uORB/topics/fw_pos_ctrl_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/position_setpoint_triplet.h>
-#include <uORB/topics/tecs_status.h>
+//#include <uORB/topics/tecs_status.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_status.h>
+
+//cai new added
+#include <uORB/topics/actuator_controls.h>
+#include <uORB/topics/battery_status.h>
+
 #include <uORB/uORB.h>
 #include <vtol_att_control/vtol_type.h>
 
@@ -108,8 +61,8 @@ using matrix::Quatf;
 using matrix::Vector2f;
 using matrix::Vector3f;
 
-using namespace launchdetection;
-using namespace runwaytakeoff;
+//using namespace launchdetection;
+//using namespace runwaytakeoff;
 
 class FixedwingPositionControl
 {
@@ -134,6 +87,58 @@ public:
 	bool		task_running() { return _task_running; }
 
 private:
+	math::Matrix<3, 3> _R_nb;				///< current attitude
+	float _roll{0.0f};
+	float _pitch{0.0f};
+	float _yaw{0.0f};
+
+	//cai add:
+	float _roll_cmd{0.0f};
+	float _pitch_cmd{0.0f};
+	float _yaw_cmd{0.0f};
+	float _thrust_cmd{0.0f};
+	float _wheel_cmd{0.0f};
+
+	float _roll_integ{0.0f};
+	float _pitch_integ{0.0f};
+	float _yaw_integ{0.0f};
+	float _thrust_integ{0.5f};  // initial value is 0.5
+
+
+
+	float _height{0.0f};
+	float _heightDot{0.0f};
+
+	float _trackError{0.0f};
+	float _trackErrorVel{0.0f};
+
+	float _tkoff_yaw{0.0f};
+	float _tkoff_alt{0.0f};
+
+	float _scaler{0.0f};
+	math::Vector<2> _tkoff_wp;
+
+	float _dH{0.0f};
+	float _dL{0.0f};
+
+
+
+	control_state_s			_ctrl_state {};			///< control state */
+	manual_control_setpoint_s	_manual {};			///< r/c channel data */
+	position_setpoint_triplet_s	_pos_sp_triplet {};		///< triplet of mission items */
+	vehicle_global_position_s	_global_pos {};			///< global vehicle position */
+	vehicle_attitude_setpoint_s	_att_sp {};			///< vehicle attitude setpoint */
+
+	vehicle_command_s		_vehicle_command {};		///< vehicle commands */
+	vehicle_control_mode_s		_control_mode {};		///< control mode */
+	vehicle_status_s		_vehicle_status {};		///< vehicle status */
+
+	fw_pos_ctrl_status_s		_fw_pos_ctrl_status {};		///< navigation capabilities */
+	vehicle_land_detected_s		_vehicle_land_detected {};	///< vehicle land detected */
+	
+
+
+
 	orb_advert_t	_mavlink_log_pub{nullptr};
 
 	bool		_task_should_exit{false};		///< if true, sensor task should exit */
@@ -150,21 +155,11 @@ private:
 	int		_manual_control_sub{-1};		///< notification of manual control updates */
 
 	orb_advert_t	_attitude_sp_pub{nullptr};		///< attitude setpoint */
-	orb_advert_t	_tecs_status_pub{nullptr};		///< TECS status publication */
 	orb_advert_t	_fw_pos_ctrl_status_pub{nullptr};	///< navigation capabilities publication */
 
-	orb_id_t _attitude_setpoint_id{nullptr};
 
-	control_state_s			_ctrl_state {};			///< control state */
-	fw_pos_ctrl_status_s		_fw_pos_ctrl_status {};		///< navigation capabilities */
-	manual_control_setpoint_s	_manual {};			///< r/c channel data */
-	position_setpoint_triplet_s	_pos_sp_triplet {};		///< triplet of mission items */
-	vehicle_attitude_setpoint_s	_att_sp {};			///< vehicle attitude setpoint */
-	vehicle_command_s		_vehicle_command {};		///< vehicle commands */
-	vehicle_control_mode_s		_control_mode {};		///< control mode */
-	vehicle_global_position_s	_global_pos {};			///< global vehicle position */
-	vehicle_land_detected_s		_vehicle_land_detected {};	///< vehicle land detected */
-	vehicle_status_s		_vehicle_status {};		///< vehicle status */
+
+
 
 	perf_counter_t	_loop_perf;				///< loop performance counter */
 
@@ -181,14 +176,8 @@ private:
 
 	hrt_abstime _control_position_last_called{0};		///< last call of control_position  */
 
-	/* Landing */
-	bool _land_noreturn_horizontal{false};
-	bool _land_noreturn_vertical{false};
-	bool _land_stayonground{false};
-	bool _land_motor_lim{false};
-	bool _land_onslope{false};
 
-	Landingslope _landingslope;
+
 
 	hrt_abstime _time_started_landing{0};			///< time at which landing started */
 
@@ -202,12 +191,7 @@ private:
 	bool _was_in_air{false};				///< indicated wether the plane was in the air in the previous interation*/
 	hrt_abstime _time_went_in_air{0};			///< time at which the plane went in the air */
 
-	/* Takeoff launch detection and runway */
-	LaunchDetector _launchDetector;
-	LaunchDetectionResult _launch_detection_state{LAUNCHDETECTION_RES_NONE};
-	hrt_abstime _launch_detection_notify{0};
 
-	RunwayTakeoff _runway_takeoff;
 
 	bool _last_manual{false};				///< true if the last iteration was in manual mode (used to determine when a reset is needed)
 
@@ -217,24 +201,14 @@ private:
 
 	float _groundspeed_undershoot{0.0f};			///< ground speed error to min. speed in m/s
 
-	math::Matrix<3, 3> _R_nb;				///< current attitude
-	float _roll{0.0f};
-	float _pitch{0.0f};
-	float _yaw{0.0f};
 
-	bool _reinitialize_tecs{true};				///< indicates if the TECS states should be reinitialized (used for VTOL)
-	bool _is_tecs_running{false};
-	hrt_abstime _last_tecs_update{0};
 
-	float _asp_after_transition{0.0f};
-	bool _was_in_transition{false};
+
 
 	// estimator reset counters
 	uint8_t _pos_reset_counter{0};				///< captures the number of times the estimator has reset the horizontal position
 	uint8_t _alt_reset_counter{0};				///< captures the number of times the estimator has reset the altitude state
 
-	ECL_L1_Pos_Controller	_l1_control;
-	TECS			_tecs;
 
 	enum FW_POSCTRL_MODE {
 		FW_POSCTRL_MODE_AUTO,
@@ -244,8 +218,10 @@ private:
 	} _control_mode_current{FW_POSCTRL_MODE_OTHER};		///< used to check the mode in the last control loop iteration. Use to check if the last iteration was in the same mode.
 
 	struct {
-		float l1_period;
-		float l1_damping;
+		float
+
+
+
 
 		float time_const;
 		float time_const_throt;
@@ -443,14 +419,7 @@ private:
 	void		reset_takeoff_state();
 	void		reset_landing_state();
 
-	/*
-	 * Call TECS : a wrapper function to call the TECS implementation
-	 */
-	void tecs_update_pitch_throttle(float alt_sp, float airspeed_sp,
-					float pitch_min_rad, float pitch_max_rad,
-					float throttle_min, float throttle_max, float throttle_cruise,
-					bool climbout_mode, float climbout_pitch_min_rad,
-					uint8_t mode = tecs_status_s::TECS_MODE_NORMAL);
+
 
 };
 
