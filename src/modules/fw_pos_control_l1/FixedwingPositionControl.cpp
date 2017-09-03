@@ -191,14 +191,17 @@ FixedwingPositionControl::parameters_update()
 	return PX4_OK;
 }
 
-void
-FixedwingPositionControl::vehicle_control_mode_poll()
+/**
+ * [FixedwingPositionControl::vehicle_control_mode_poll description]
+ */
+void FixedwingPositionControl::vehicle_control_mode_poll()
 {
 	bool updated;
 
 	orb_check(_control_mode_sub, &updated);
 
 	if (updated) {
+		_last_armed = _control_mode.flag_armed;
 		orb_copy(ORB_ID(vehicle_control_mode), _control_mode_sub, &_control_mode);
 	}
 }
@@ -214,15 +217,9 @@ FixedwingPositionControl::vehicle_status_poll()
 
 	if (updated) {
 		orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vehicle_status);
-
 		/* set correct uORB ID, depending on if vehicle is VTOL or not */
 		if (_attitude_setpoint_id == nullptr) {
-			if (_vehicle_status.is_vtol) {
-				_attitude_setpoint_id = ORB_ID(fw_virtual_attitude_setpoint);
-
-			} else {
-				_attitude_setpoint_id = ORB_ID(vehicle_attitude_setpoint);
-			}
+			_attitude_setpoint_id = ORB_ID(vehicle_attitude_setpoint);
 		}
 	}
 }
@@ -252,6 +249,9 @@ FixedwingPositionControl::manual_control_setpoint_poll()
 	}
 }
 
+
+
+
 void
 FixedwingPositionControl::control_state_poll()
 {
@@ -272,12 +272,18 @@ FixedwingPositionControl::control_state_poll()
 		}
 	}
 
+	if (_airspeed_valid)
+	{
+		_airspd_constrain = constrain(_ctrl_state.airspeed, _k_Vmin, _k_Vmax);
+		_scaler = _k_Vcru/_airspd_constrain;
+	} else {
+		_scaler = 1.0f;
+		_airspd_constrain = _k_Vcru;
+	}
+
 	/* set rotation matrix and euler angles */
 	math::Quaternion q_att(_ctrl_state.q);
-	_R_nb = q_att.to_dcm();
-
-	math::Vector<3> euler_angles;
-	euler_angles = _R_nb.to_euler();
+	math::Vector<3> euler_angles =  q_att.to_euler();
 	_roll    = euler_angles(0);
 	_pitch   = euler_angles(1);
 	_yaw     = euler_angles(2);
@@ -295,13 +301,16 @@ FixedwingPositionControl::position_setpoint_triplet_poll()
 
 		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND)
 		{
-			//caitodo get _dH and _dL of landing waypoint
-		}
-		if (/* condition */)
-		{
-			//caitodo get trackangle of the route
-		}
+			static int i  = 0 ;
+			if (i == 0)
+			{
+				//caitodo check if OK for only calculating this once!!!!
+				_dH = _pos_sp_triplet.previous.alt - _pos_sp_triplet.current.alt;
+				_dL = get_distance_to_next_waypoint(_pos_sp_triplet.previous.lat, _pos_sp_triplet.previous.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
 
+				i++;
+			}
+		}
 	}
 }
 
@@ -333,44 +342,6 @@ FixedwingPositionControl::fw_pos_ctrl_status_publish()
 		_fw_pos_ctrl_status_pub = orb_advertise(ORB_ID(fw_pos_ctrl_status), &_fw_pos_ctrl_status);
 	}
 }
-
-void
-FixedwingPositionControl::get_waypoint_heading_distance(float heading, position_setpoint_s &waypoint_prev,
-		position_setpoint_s &waypoint_next, bool flag_init)
-{
-	position_setpoint_s temp_prev = waypoint_prev;
-	position_setpoint_s temp_next = waypoint_next;
-
-	if (flag_init) {
-		// previous waypoint: HDG_HOLD_SET_BACK_DIST meters behind us
-		waypoint_from_heading_and_distance(_global_pos.lat, _global_pos.lon, heading + radians(180.0f),
-						   HDG_HOLD_SET_BACK_DIST, &temp_prev.lat, &temp_prev.lon);
-
-		// next waypoint: HDG_HOLD_DIST_NEXT meters in front of us
-		waypoint_from_heading_and_distance(_global_pos.lat, _global_pos.lon, heading,
-						   HDG_HOLD_DIST_NEXT, &temp_next.lat, &temp_next.lon);
-
-	} else {
-		// use the existing flight path from prev to next
-
-		// previous waypoint: shifted HDG_HOLD_REACHED_DIST + HDG_HOLD_SET_BACK_DIST
-		create_waypoint_from_line_and_dist(waypoint_next.lat, waypoint_next.lon, waypoint_prev.lat, waypoint_prev.lon,
-						   HDG_HOLD_REACHED_DIST + HDG_HOLD_SET_BACK_DIST, &temp_prev.lat, &temp_prev.lon);
-
-		// next waypoint: shifted -(HDG_HOLD_DIST_NEXT + HDG_HOLD_REACHED_DIST)
-		create_waypoint_from_line_and_dist(waypoint_next.lat, waypoint_next.lon, waypoint_prev.lat, waypoint_prev.lon,
-						   -(HDG_HOLD_REACHED_DIST + HDG_HOLD_DIST_NEXT), &temp_next.lat, &temp_next.lon);
-	}
-
-	waypoint_prev = temp_prev;
-	waypoint_prev.alt = _hold_alt;
-	waypoint_prev.valid = true;
-
-	waypoint_next = temp_next;
-	waypoint_next.alt = _hold_alt;
-	waypoint_next.valid = true;
-}
-
 
 //caitodo checkthis
 float
@@ -409,20 +380,59 @@ FixedwingPositionControl::do_takeoff_help(float *hold_altitude, float *pitch_lim
 	}
 }
 
-//caitodo update _scaler
-void FixedwingPositionControl::filterHeight()
+
+//this function is from ecl_l1_pos_controller.cpp
+math::Vector<2> FixedwingPositionControl::get_local_planar_vector(const math::Vector<2> &origin, const math::Vector<2> &target) const
 {
-	//get filtered _height and _heightDot
-	_height = ;
-	_heightDot = ;
+	/* this is an approximation for small angles, proposed by [2] */
+
+	math::Vector<2> out(math::radians((target(0) - origin(0))), math::radians((target(1) - origin(1))*cosf(math::radians(origin(0)))));
+
+	return out * static_cast<float>(CONSTANTS_RADIUS_OF_EARTH);
 }
 
-void FixedwingPositionControl::calcTrackError()
+/**
+ * calculate:
+ *  _trackError
+ *   _trackErrorVel
+ *    _trackAngle; */
+void FixedwingPositionControl::calcTrackInfo(const math::Vector<2> &ground_speed_vector)
 {
-	_trackError    = ;
-	_trackErrorVel = ;
+	math::Vector<2> vector_A{(float)_pos_sp_triplet.previous.lat, (float)_pos_sp_triplet.previous.lon};
 
+	math::Vector<2> vector_B{(float)_pos_sp_triplet.current.lat, (float)_pos_sp_triplet.current.lon};
+	if (!_pos_sp_triplet.previous.valid)
+	{
+		vector_A = vector_B;
+	}
+
+	math::Vector<2> vector_cur{(float)_global_pos.lat, (float)_global_pos.lon};
+
+	math::Vector<2> vector_AB = get_local_planar_vector(vector_A, vector_B);
+	/*
+	 * check if waypoints are on top of each other. If yes,
+	 * skip A and directly continue to B
+	 */
+	if (vector_AB.length() < 1.0e-6f) {
+		vector_AB = get_local_planar_vector(vector_curr_position, vector_B);
+	}
+
+	vector_AB.normalize();
+
+
+	math::Vector<2> vector_A_to_airplane = get_local_planar_vector(vector_A, vector_cur);
+
+
+	_pos_sp_triplet.previous.lat, _pos_sp_triplet.previous.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon;
+
+	_trackAngle = get_bearing_to_next_waypoint(_pos_sp_triplet.previous.lat, _pos_sp_triplet.previous.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
+
+	//caitod check the sign of the value
+	_trackError    = vector_A_to_airplane % vector_AB;
+	_trackErrorVel = ground_speed_vector % vector_AB;
 }
+
+
 
 void FixedwingPositionControl::control_thrust(float v_dmd, float dt)
 {
@@ -462,7 +472,7 @@ void FixedwingPositionControl::control_pitch(float pitch_ref, float height_dot_d
 
 		float pitch_dmd = height_integ + _k_HdotE * (_heightDot - height_dot_dmd) + pitch_ref;
 
-		pitch_rate_dmd = _k_pitch_E * (_pitch - pitch_dmd) + (G_CONST/_ctrl_state.airspeed)*cosf(_pitch)*tanf(_roll)*sinf(_roll);
+		pitch_rate_dmd = _k_pitch_E * (_pitch - pitch_dmd) + (G_CONST/_airspd_constrain)*cosf(_pitch)*tanf(_roll)*sinf(_roll);
 	}
 	else if (in_takeoff_mode)
 	{
@@ -486,11 +496,9 @@ void FixedwingPositionControl::control_pitch(float pitch_ref, float height_dot_d
 
 void FixedwingPositionControl::control_roll(int method, float dt)
 {
-	//caitodo get the yaw of the track
-	float yaw_track = 0.0f;
-
 	static float track_integ = 0.0f;
-			
+	
+	float yaw_track = 0.0f;
 	if (method == 1)
 	{
 		_roll_cmd = _k_PA * _ctrl_state.roll_rate + _k_roll_A * _roll;
@@ -503,7 +511,7 @@ void FixedwingPositionControl::control_roll(int method, float dt)
 		float roll_dmd = _k_YdotA * trackErrorVError + track_integ + _k_yaw_A * (_yaw-yaw_track);
 		roll_dmd = constrain(roll_dmd, -radians(30.0f), radians(30.0f));
 
-		float roll_rate_dmd = _k_roll_A * (_roll - roll_dmd) - (G_CONST/_ctrl_state.airspeed)*tanf(_roll)*sinf(_pitch);
+		float roll_rate_dmd = _k_roll_A * (_roll - roll_dmd) - (G_CONST/_airspd_constrain)*tanf(_roll)*sinf(_pitch);
 		roll_rate_dmd  = constrain(roll_rate_dmd, -radians(5.0f), radians(5.0f));
 
 		_roll_integ += _k_i_PA*dt * (_ctrl_state.roll_rate - roll_rate_dmd);
@@ -516,7 +524,7 @@ void FixedwingPositionControl::control_roll(int method, float dt)
 
 void FixedwingPositionControl::control_yaw(float dt)
 {
-	float yaw_rate_dmd = G_CONST/_ctrl_state.airspeed * tanf(_roll)*cosf(_roll)*cosf(_pitch);
+	float yaw_rate_dmd = G_CONST/_airspd_constrain * tanf(_roll)*cosf(_roll)*cosf(_pitch);
 
 	_yaw_integ += _k_i_RA*dt*constrain(_ctrl_state.yaw_rate - yaw_rate_dmd, -radians(1.0f), radians(1.0f));
 	_yaw_integ = constrain(_yaw_integ, -radians(5.0f), radians(5.0f));
@@ -542,13 +550,6 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 	_att_sp.fw_control_yaw = false;		// by default we don't want yaw to be contoller directly with rudder
 	_att_sp.apply_flaps = false;		// by default we don't use flaps
-
-	/* filter speed and altitude for controller */
-	math::Vector<3> accel_body(_ctrl_state.x_acc, _ctrl_state.y_acc, _ctrl_state.z_acc);
-
-	math::Vector<3> accel_earth{_R_nb * accel_body};
-
-	//caitodo filter airspeed and height height speed!!! 
 
 
 	// l1 navigation logic breaks down when wind speed exceeds max airspeed
@@ -605,21 +606,6 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		_att_sp.pitch_reset_integral = false;
 		_att_sp.yaw_reset_integral = false;
 
-		/* previous waypoint */
-		math::Vector<2> prev_wp{0.0f, 0.0f};
-
-		if (pos_sp_prev.valid) {
-			prev_wp(0) = (float)pos_sp_prev.lat;
-			prev_wp(1) = (float)pos_sp_prev.lon;
-
-		} else {
-			/*
-			 * No valid previous waypoint, go for the current wp.
-			 * This is automatically handled by the L1 library.
-			 */
-			prev_wp(0) = (float)pos_sp_curr.lat;
-			prev_wp(1) = (float)pos_sp_curr.lon;
-		}
 
 		float mission_airspeed = _parameters.airspeed_trim;
 
@@ -638,6 +624,10 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		}
 
 
+		//calculate tranck Error speed, and track angle
+		calcTrackInfo(nav_speed_2d);
+
+
 		float height_dot_dmd = 0.0f;
 		switch(pos_sp_curr.type)
 		{
@@ -647,19 +637,27 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 			_att_sp.pitch_body = 0.0f;
 			break;
 		case position_setpoint_s::SETPOINT_TYPE_TAKEOFF:
-			static int takeoff_state = -1;  //
-
-			switch(takeoff_state)
+			switch(_takeoff_state)
 			{
-			case -1:   //takeoff uninitialized caitodo check armed state????
-				takeoff_state = 0;
-				_tkoff_wp(0) = (float)_global_pos.lat;
-				_tkoff_wp(1) = (float)_global_pos.lon;
-				_tkoff_alt   = _global_pos.alt;
+			case -1:   //takeoff uninitialized
+				if (_control_mode.flag_armed)
+				{
+					_takeoff_state = 0;
+					_tkoff_wp(0) = (float)_global_pos.lat;
+					_tkoff_wp(1) = (float)_global_pos.lon;
+					_tkoff_alt   = _global_pos.alt;
 
+					_tkoff_yaw = get_bearing_to_next_waypoint(_global_pos.lat, _global_pos.lat, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
+
+					mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff started");
+				}
+		
 				_thrust_integ = 0.5f;
 
-				_tkoff_yaw = 0.0f  //caitodo calculate the yaw of the runway;
+				_pitch_cmd = 0.0f;
+				_roll_cmd  = 0.0f;
+				_yaw_cmd   = 0.0f;
+				_thrust_cmd = 0.0f;
 				break;
 			case 0:  //on runway and armed
 				_pitch_cmd = 0.0f;
@@ -680,7 +678,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 					takeoff_state = 1;
 					//reset thrust integerator
 					_thrust_integ = 0.5f;
-					mavlink_log_info(mavlink_log_pub, "#cdcTakeoff airspeed reached");
+					mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff airspeed reached");
 				}
 				break;
 			case 1:  //reached airspeed,  front wheel liftoff
@@ -702,13 +700,24 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 				if (_global_pos.alt > _tkoff_alt+15.0f)
 				{
 					takeoff_state = 2;
-					mavlink_log_info(mavlink_log_pub, "#cdcNavigating to waypoint");
+					mavlink_log_info(&_mavlink_log_pub, "#cdcNavigating to waypoint");
 				}
 				break;
 			case 2:
+				height_dot_dmd = _k_HE * (_height - (_global_pos.alt-pos_sp_curr.alt));
+				height_dot_dmd = cosntrain(height_dot_dmd, -3.0f, 3.0f);
 
-				//consider takeoff wp as a normal wp.
-			//caitodo 
+				control_pitch(radians(2.0f), height_dot_dmd,  dt);
+
+				if (_global_pos.alt > _tkoff_alt +15.0f)
+				{
+					control_roll(2, dt);
+				}else {
+					control_roll(1, dt);
+				}
+
+				control_thrust(15.0f, dt);
+				control_yaw(dt);
 				break;
 			}
 
@@ -736,8 +745,11 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 			//calculate pitch control cmd
 			if (_global_pos.alt > _tkoff_alt +15.0f)
 			{
-				//caitodo check if pos_sp_curr.alt or takeoff alt????
-				height_dot_dmd = _k_HE *(_global_pos.alt - pos_sp_curr.alt) + ground_speed.length() *tanf(_dH/_dL);
+				float height_dmd = 	float get_distance_to_next_waypoint(_global_pos.lat, _global_pos.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
+				height_dmd *= _dH/_dL; //relative height
+
+
+				height_dot_dmd = _k_HE *(_global_pos.alt - height_dmd- _tkoff_alt) + ground_speed.length() *tanf(_dH/_dL);
 				height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
 				control_pitch(radians(-3.0f), height_dot_dmd, dt);
 			} else{
@@ -747,24 +759,34 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 			}
 
 			//roll, yaw and thrust
+			control_thrust(8.0f, dt);
+
+			static hrt_abstime land_low_alt_T{0};
 			if (_global_pos.alt > _tkoff_alt +2.0f)
 			{
 				control_roll(2, dt);
 				control_yaw(dt);
+				land_low_alt_T = hrt_absolute_time();
 			} else{
 				control_roll(1, dt);
 
-				//caitodo get landing runway yaw!!!!
-				float yaw_term = constrain(_k_yaw * (_yaw - _tkoff_yaw), radians(-5.0f), radians(5.0f));
+				//_trackAngle is the runway angle!!!!
+				float yaw_term = constrain(_k_yaw * (_yaw - _trackAngle), radians(-5.0f), radians(5.0f));
 				float track_term = constrain(_k_track * _trackError, radians(-3.0f), radians(3.0f));
 				_wheel_cmd = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term+track_term);
 				_yaw_cmd   = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term + _k_R*_ctrl_state.yaw_rate + track_term);
-
-
-				control_thrust(8.0f, dt);
-				//caitodo stop motors if height below 2m for 5 seconds!!
+				
+				//stop motors if height below 2m for 5 seconds!!
+				if (hrt_absolute_time() - land_low_alt_T > 5000000)
+				{
+					_roll_cmd = 0.0f;
+					_pitch_cmd = 0.0f;
+					_yaw_cmd = 0.0f;
+					_thrust_cmd = 0.0f;
+					_wheel_cmd = 0.0f;
+				}
+				
 			}
-	
 			break;
 		default:
 		break;
@@ -881,18 +903,12 @@ FixedwingPositionControl::task_main()
 			/* load local copies */
 			orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);
 
-			// handle estimator reset events. we only adjust setpoins for manual modes
-			if (_control_mode.flag_control_manual_enabled) {
-				if (_control_mode.flag_control_altitude_enabled && _global_pos.alt_reset_counter != _alt_reset_counter) {
-					_hold_alt += _global_pos.delta_alt;
-					// make TECS accept step in altitude and demanded altitude
-					_tecs.handle_alt_step(_global_pos.delta_alt, _global_pos.alt);
-				}
-			}
+			//cai get height and heightDot, todo, maybe we need filter later.....
+			_height = _global_pos.alt;
+			_heightDot = -_global_pos.vel_d;
 
-			// update the reset counters in any case
-			_alt_reset_counter = _global_pos.alt_reset_counter;
-			_pos_reset_counter = _global_pos.lat_lon_reset_counter;
+
+
 
 			control_state_poll();
 			manual_control_setpoint_poll();
@@ -937,6 +953,8 @@ FixedwingPositionControl::task_main()
 					}
 				}
 
+
+				//caitodo check if we need to publish this topic and how to fill the data!!
 				/* XXX check if radius makes sense here */
 				float turn_distance = _l1_control.switch_distance(100.0f);
 

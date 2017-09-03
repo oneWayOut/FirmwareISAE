@@ -104,6 +104,8 @@ private:
 	float _yaw_integ{0.0f};
 	float _thrust_integ{0.5f};  // initial value is 0.5
 
+	float _scaler{0.0f};   //   Vcru/V
+	float _airspd_constrain{0.0f};
 
 
 	float _height{0.0f};
@@ -111,15 +113,17 @@ private:
 
 	float _trackError{0.0f};
 	float _trackErrorVel{0.0f};
+	float _trackAngle{0.0f};
 
 	float _tkoff_yaw{0.0f};
 	float _tkoff_alt{0.0f};
-
-	float _scaler{0.0f};
+	int _takeoff_state{-1};  //
 	math::Vector<2> _tkoff_wp;
 
 	float _dH{0.0f};
 	float _dL{0.0f};
+
+	bool _last_armed{false};
 
 
 
