@@ -36,6 +36,7 @@
 //cai new added
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/battery_status.h>
+#include <systemlib/mavlink_log.h>
 
 #include <uORB/uORB.h>
 #include <vtol_att_control/vtol_type.h>
@@ -101,8 +102,10 @@ private:
 
 	float _roll_integ{0.0f};
 	float _pitch_integ{0.0f};
-	float _yaw_integ{0.0f};
 	float _thrust_integ{0.5f};  // initial value is 0.5
+
+	float _height_integ{0.0f};  //for pitch control
+	float _track_integ{0.0f};  //for roll control
 
 	float _scaler{0.0f};   //   Vcru/V
 	float _airspd_constrain{0.0f};
@@ -117,13 +120,20 @@ private:
 
 	float _tkoff_yaw{0.0f};
 	float _tkoff_alt{0.0f};
-	int _takeoff_state{-1};  //
-	math::Vector<2> _tkoff_wp;
+	int _takeoff_state{-1};  //-1=uninitialized takeoff waypoint; 
+	                          //0=slide on runway; 1=reached airspeed; 2=fly;
+
+	int _land_state{-1};  //-1 = at land; 0=fly; 1=flare; 2=low than 2 meters;  
+
 
 	float _dH{0.0f};
 	float _dL{0.0f};
 
 	bool _last_armed{false};
+
+
+	orb_advert_t	_actuators_0_pub;
+	struct actuator_controls_s	_actuators;		/**< actuator control inputs */
 
 
 
@@ -221,122 +231,53 @@ private:
 		FW_POSCTRL_MODE_OTHER
 	} _control_mode_current{FW_POSCTRL_MODE_OTHER};		///< used to check the mode in the last control loop iteration. Use to check if the last iteration was in the same mode.
 
-	struct {
-		float
 
-
-
-
-		float time_const;
-		float time_const_throt;
-		float min_sink_rate;
-		float max_sink_rate;
-		float max_climb_rate;
-		float climbout_diff;
-		float heightrate_p;
-		float heightrate_ff;
-		float speedrate_p;
-		float throttle_damp;
-		float integrator_gain;
-		float vertical_accel_limit;
-		float height_comp_filter_omega;
-		float speed_comp_filter_omega;
-		float roll_throttle_compensation;
-		float speed_weight;
-		float pitch_damping;
-
-		float airspeed_min;
-		float airspeed_trim;
-		float airspeed_max;
-		float airspeed_trans;
-		int32_t airspeed_mode;
-
-		float pitch_limit_min;
-		float pitch_limit_max;
-		float roll_limit;
-
-		float throttle_min;
-		float throttle_max;
-		float throttle_idle;
-		float throttle_cruise;
-		float throttle_slew_max;
-
-		float man_roll_max_rad;
-		float man_pitch_max_rad;
-		float rollsp_offset_rad;
-		float pitchsp_offset_rad;
-
-		float throttle_land_max;
-
-		float land_slope_angle;
-		float land_H1_virt;
-		float land_flare_alt_relative;
-		float land_thrust_lim_alt_relative;
-		float land_heading_hold_horizontal_distance;
-		float land_flare_pitch_min_deg;
-		float land_flare_pitch_max_deg;
-		int32_t land_use_terrain_estimate;
-		float land_airspeed_scale;
-
-		int32_t vtol_type;
-	} _parameters{};					///< local copies of interesting parameters */
+/******* parameters  ***************/
+	float _k_QE;
+	float _k_i_QE;
+	float _k_pitch_E;
+	float _k_HE;
+	float _k_HdotE;
+	float _k_i_HdotE;
+	float _k_Vmax;
+	float _k_Vmin;
+	float _k_Vcru;
+	float _k_AxP;
+	float _k_i_AxP;
+	float _k_Vas;
+	float _k_yaw_R;
+	float _k_YR;
+	float _k_RR;
+	float _k_YA;
+	float _k_i_YA;
+	float _k_yaw_A;
+	float _k_roll_A;
+	float _k_PA;
+	float _k_i_PA;
+/******* parameters  ***************/
 
 	struct {
-		param_t l1_period;
-		param_t l1_damping;
-
-		param_t time_const;
-		param_t time_const_throt;
-		param_t min_sink_rate;
-		param_t max_sink_rate;
-		param_t max_climb_rate;
-		param_t climbout_diff;
-		param_t heightrate_p;
-		param_t heightrate_ff;
-		param_t speedrate_p;
-		param_t throttle_damp;
-		param_t integrator_gain;
-		param_t vertical_accel_limit;
-		param_t height_comp_filter_omega;
-		param_t speed_comp_filter_omega;
-		param_t roll_throttle_compensation;
-		param_t speed_weight;
-		param_t pitch_damping;
-
-		param_t airspeed_min;
-		param_t airspeed_trim;
-		param_t airspeed_max;
-		param_t airspeed_trans;
-		param_t airspeed_mode;
-
-		param_t pitch_limit_min;
-		param_t pitch_limit_max;
-		param_t roll_limit;
-
-		param_t throttle_min;
-		param_t throttle_max;
-		param_t throttle_idle;
-		param_t throttle_cruise;
-		param_t throttle_slew_max;
-
-		param_t man_roll_max_deg;
-		param_t man_pitch_max_deg;
-		param_t rollsp_offset_deg;
-		param_t pitchsp_offset_deg;
-
-		param_t throttle_land_max;
-
-		param_t land_slope_angle;
-		param_t land_H1_virt;
-		param_t land_flare_alt_relative;
-		param_t land_thrust_lim_alt_relative;
-		param_t land_heading_hold_horizontal_distance;
-		param_t land_flare_pitch_min_deg;
-		param_t land_flare_pitch_max_deg;
-		param_t land_use_terrain_estimate;
-		param_t land_airspeed_scale;
-
-		param_t vtol_type;
+		param_t _k_QE;
+		param_t _k_i_QE;
+		param_t _k_pitch_E;
+		param_t _k_HE;
+		param_t _k_HdotE;
+		param_t _k_i_HdotE;
+		param_t _k_Vmax;
+		param_t _k_Vmin;
+		param_t _k_Vcru;
+		param_t _k_AxP;
+		param_t _k_i_AxP;
+		param_t _k_Vas;
+		param_t _k_yaw_R;
+		param_t _k_YR;
+		param_t _k_RR;
+		param_t _k_YA;
+		param_t _k_i_YA;
+		param_t _k_yaw_A;
+		param_t _k_roll_A;
+		param_t _k_PA;
+		param_t _k_i_PA;
 	} _parameter_handles {};				///< handles for interesting parameters */
 
 
@@ -345,9 +286,19 @@ private:
 	 */
 	int		parameters_update();
 
+	void    reset_integral(void);
+	void    calcTrackInfo();
+	float   softenCmd(float lastCmd, float thisCmd, float dt, float rate);
+	void    control_thrust(float v_dmd, float dt);
+	void    control_pitch(int method, float height_dot_dmd, float dt);
+	void    control_roll(int method, float dt);
+	void    control_yaw(int method, float yaw_dmd, float dt);
+
+	math::Vector<2> get_local_planar_vector(const math::Vector<2> &origin, const math::Vector<2> &target) const;
+
 	// Update subscriptions
-	void		control_state_poll();
-	void		control_update();
+	void		control_state_update();
+	void        global_pos_poll();
 	void		manual_control_setpoint_poll();
 	void		position_setpoint_triplet_poll();
 	void		vehicle_command_poll();
@@ -358,57 +309,17 @@ private:
 	// publish navigation capabilities
 	void		fw_pos_ctrl_status_publish();
 
-	/**
-	 * Get a new waypoint based on heading and distance from current position
-	 *
-	 * @param heading the heading to fly to
-	 * @param distance the distance of the generated waypoint
-	 * @param waypoint_prev the waypoint at the current position
-	 * @param waypoint_next the waypoint in the heading direction
-	 */
-	void		get_waypoint_heading_distance(float heading, position_setpoint_s &waypoint_prev,
-			position_setpoint_s &waypoint_next, bool flag_init);
-
+	
 	/**
 	 * Return the terrain estimate during takeoff or takeoff_alt if terrain estimate is not available
 	 */
 	float		get_terrain_altitude_takeoff(float takeoff_alt, const vehicle_global_position_s &global_pos);
 
-	/**
-	 * Check if we are in a takeoff situation
-	 */
-	bool 		in_takeoff_situation();
 
-	/**
-	 * Do takeoff help when in altitude controlled modes
-	 * @param hold_altitude altitude setpoint for controller
-	 * @param pitch_limit_min minimum pitch allowed
-	 */
-	void 		do_takeoff_help(float *hold_altitude, float *pitch_limit_min);
-
-	/**
-	 * Update desired altitude base on user pitch stick input
-	 *
-	 * @param dt Time step
-	 * @return true if climbout mode was requested by user (climb with max rate and min airspeed)
-	 */
-	bool		update_desired_altitude(float dt);
 
 	bool		control_position(const math::Vector<2> &curr_pos, const math::Vector<2> &ground_speed,
 					 const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
 
-	float		get_tecs_pitch();
-	float		get_tecs_thrust();
-
-	float		get_demanded_airspeed();
-	float		calculate_target_airspeed(float airspeed_demand);
-	void		calculate_gndspeed_undershoot(const math::Vector<2> &curr_pos, const math::Vector<2> &ground_speed,
-			const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
-
-	/**
-	 * Handle incoming vehicle commands
-	 */
-	void		handle_command();
 
 	/**
 	 * Shim for calling task_main from task_create.
@@ -420,11 +331,7 @@ private:
 	 */
 	void		task_main();
 
-	void		reset_takeoff_state();
 	void		reset_landing_state();
-
-
-
 };
 
 namespace l1_control

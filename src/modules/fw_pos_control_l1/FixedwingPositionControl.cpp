@@ -3,7 +3,7 @@
 
 #define G_CONST 9.81f
 
-//caitodo add battery_status
+//caitodo add battery_status for thrust compensate
 
 extern "C" __EXPORT int fw_pos_control_l1_main(int argc, char *argv[]);
 
@@ -11,63 +11,38 @@ FixedwingPositionControl *l1_control::g_control;
 static int _control_task = -1;			///< task handle for sensor task */
 
 FixedwingPositionControl::FixedwingPositionControl() :
+	_actuators_0_pub(nullptr),
 	_loop_perf(perf_alloc(PC_ELAPSED, "fw l1 control"))
 {
-	_parameter_handles.l1_period = param_find("FW_L1_PERIOD");
-	_parameter_handles.l1_damping = param_find("FW_L1_DAMPING");
-
-	_parameter_handles.airspeed_min = param_find("FW_AIRSPD_MIN");
-	_parameter_handles.airspeed_trim = param_find("FW_AIRSPD_TRIM");
-	_parameter_handles.airspeed_max = param_find("FW_AIRSPD_MAX");
-	_parameter_handles.airspeed_trans = param_find("VT_ARSP_TRANS");
-	_parameter_handles.airspeed_mode = param_find("FW_ARSP_MODE");
-
-	_parameter_handles.pitch_limit_min = param_find("FW_P_LIM_MIN");
-	_parameter_handles.pitch_limit_max = param_find("FW_P_LIM_MAX");
-	_parameter_handles.roll_limit = param_find("FW_R_LIM");
-	_parameter_handles.throttle_min = param_find("FW_THR_MIN");
-	_parameter_handles.throttle_max = param_find("FW_THR_MAX");
-	_parameter_handles.throttle_idle = param_find("FW_THR_IDLE");
-	_parameter_handles.throttle_slew_max = param_find("FW_THR_SLEW_MAX");
-	_parameter_handles.throttle_cruise = param_find("FW_THR_CRUISE");
-	_parameter_handles.throttle_land_max = param_find("FW_THR_LND_MAX");
-	_parameter_handles.man_roll_max_deg = param_find("FW_MAN_R_MAX");
-	_parameter_handles.man_pitch_max_deg = param_find("FW_MAN_P_MAX");
-	_parameter_handles.rollsp_offset_deg = param_find("FW_RSP_OFF");
-	_parameter_handles.pitchsp_offset_deg = param_find("FW_PSP_OFF");
-
-	_parameter_handles.land_slope_angle = param_find("FW_LND_ANG");
-	_parameter_handles.land_H1_virt = param_find("FW_LND_HVIRT");
-	_parameter_handles.land_flare_alt_relative = param_find("FW_LND_FLALT");
-	_parameter_handles.land_flare_pitch_min_deg = param_find("FW_LND_FL_PMIN");
-	_parameter_handles.land_flare_pitch_max_deg = param_find("FW_LND_FL_PMAX");
-	_parameter_handles.land_thrust_lim_alt_relative = param_find("FW_LND_TLALT");
-	_parameter_handles.land_heading_hold_horizontal_distance = param_find("FW_LND_HHDIST");
-	_parameter_handles.land_use_terrain_estimate = param_find("FW_LND_USETER");
-	_parameter_handles.land_airspeed_scale = param_find("FW_LND_AIRSPD_SC");
-
-	_parameter_handles.time_const = 			param_find("FW_T_TIME_CONST");
-	_parameter_handles.time_const_throt = 			param_find("FW_T_THRO_CONST");
-	_parameter_handles.min_sink_rate = 			param_find("FW_T_SINK_MIN");
-	_parameter_handles.max_sink_rate =			param_find("FW_T_SINK_MAX");
-	_parameter_handles.max_climb_rate =			param_find("FW_T_CLMB_MAX");
-	_parameter_handles.climbout_diff =			param_find("FW_CLMBOUT_DIFF");
-	_parameter_handles.throttle_damp = 			param_find("FW_T_THR_DAMP");
-	_parameter_handles.integrator_gain =			param_find("FW_T_INTEG_GAIN");
-	_parameter_handles.vertical_accel_limit =		param_find("FW_T_VERT_ACC");
-	_parameter_handles.height_comp_filter_omega =		param_find("FW_T_HGT_OMEGA");
-	_parameter_handles.speed_comp_filter_omega =		param_find("FW_T_SPD_OMEGA");
-	_parameter_handles.roll_throttle_compensation = 	param_find("FW_T_RLL2THR");
-	_parameter_handles.speed_weight = 			param_find("FW_T_SPDWEIGHT");
-	_parameter_handles.pitch_damping = 			param_find("FW_T_PTCH_DAMP");
-	_parameter_handles.heightrate_p =			param_find("FW_T_HRATE_P");
-	_parameter_handles.heightrate_ff =			param_find("FW_T_HRATE_FF");
-	_parameter_handles.speedrate_p =			param_find("FW_T_SRATE_P");
-
-	_parameter_handles.vtol_type = 				param_find("VT_TYPE");
+	_parameter_handles._k_QE  = 	param_find("FW_PR_P");
+	_parameter_handles._k_i_QE  = 	param_find("FW_PR_I");
+	_parameter_handles._k_pitch_E  = 	param_find("FW_P_P");
+	_parameter_handles._k_HE  = 	param_find("FW_H_P");
+	_parameter_handles._k_HdotE  = 	param_find("FW_HDOT_P");
+	_parameter_handles._k_i_HdotE  = 	param_find("FW_HDOT_I");
+	_parameter_handles._k_Vmax  = 	param_find("FW_AIRSPD_MAX");
+	_parameter_handles._k_Vmin  = 	param_find("FW_AIRSPD_MIN");
+	_parameter_handles._k_Vcru  = 	param_find("FW_AIRSPD_CRU");
+	_parameter_handles._k_AxP  = 	param_find("FW_AX_P");
+	_parameter_handles._k_i_AxP  = 	param_find("FW_AX_I");
+	_parameter_handles._k_Vas  = 	param_find("FW_AIRSPD_P");
+	_parameter_handles._k_yaw_R  = 	param_find("FW_Y_P");
+	_parameter_handles._k_YR  = 	param_find("FW_TRACK_P");
+	_parameter_handles._k_RR  = 	param_find("FW_YR_P");
+	_parameter_handles._k_YA  = 	param_find("FW_TRACK2R_P");
+	_parameter_handles._k_i_YA  = 	param_find("FW_TRACK2R_I");
+	_parameter_handles._k_yaw_A  = 	param_find("FW_Y2R_P");
+	_parameter_handles._k_roll_A  = 	param_find("FW_R_P");
+	_parameter_handles._k_PA  = 	param_find("FW_RR_P");
+	_parameter_handles._k_i_PA  = 	param_find("FW_RR_I");
 
 	/* fetch initial parameter values */
 	parameters_update();
+
+	_takeoff_state = -1;
+	_land_state = -1;
+
+	_actuators = {};
 }
 
 FixedwingPositionControl::~FixedwingPositionControl()
@@ -98,94 +73,28 @@ FixedwingPositionControl::~FixedwingPositionControl()
 int
 FixedwingPositionControl::parameters_update()
 {
-	/* L1 control parameters */
-	param_get(_parameter_handles.l1_damping, &(_parameters.l1_damping));
-	param_get(_parameter_handles.l1_period, &(_parameters.l1_period));
 
-	param_get(_parameter_handles.airspeed_min, &(_parameters.airspeed_min));
-	param_get(_parameter_handles.airspeed_trim, &(_parameters.airspeed_trim));
-	param_get(_parameter_handles.airspeed_max, &(_parameters.airspeed_max));
-	param_get(_parameter_handles.airspeed_trans, &(_parameters.airspeed_trans));
-	param_get(_parameter_handles.airspeed_mode, &(_parameters.airspeed_mode));
-
-	param_get(_parameter_handles.pitch_limit_min, &(_parameters.pitch_limit_min));
-	param_get(_parameter_handles.pitch_limit_max, &(_parameters.pitch_limit_max));
-	param_get(_parameter_handles.roll_limit, &(_parameters.roll_limit));
-	param_get(_parameter_handles.throttle_min, &(_parameters.throttle_min));
-	param_get(_parameter_handles.throttle_max, &(_parameters.throttle_max));
-	param_get(_parameter_handles.throttle_idle, &(_parameters.throttle_idle));
-	param_get(_parameter_handles.throttle_cruise, &(_parameters.throttle_cruise));
-	param_get(_parameter_handles.throttle_slew_max, &(_parameters.throttle_slew_max));
-
-	param_get(_parameter_handles.throttle_land_max, &(_parameters.throttle_land_max));
-
-	param_get(_parameter_handles.man_roll_max_deg, &_parameters.man_roll_max_rad);
-	_parameters.man_roll_max_rad = radians(_parameters.man_roll_max_rad);
-	param_get(_parameter_handles.man_pitch_max_deg, &_parameters.man_pitch_max_rad);
-	_parameters.man_pitch_max_rad = radians(_parameters.man_pitch_max_rad);
-
-	param_get(_parameter_handles.rollsp_offset_deg, &_parameters.rollsp_offset_rad);
-	_parameters.rollsp_offset_rad = radians(_parameters.rollsp_offset_rad);
-	param_get(_parameter_handles.pitchsp_offset_deg, &_parameters.pitchsp_offset_rad);
-	_parameters.pitchsp_offset_rad = radians(_parameters.pitchsp_offset_rad);
-
-	param_get(_parameter_handles.time_const, &(_parameters.time_const));
-	param_get(_parameter_handles.time_const_throt, &(_parameters.time_const_throt));
-	param_get(_parameter_handles.min_sink_rate, &(_parameters.min_sink_rate));
-	param_get(_parameter_handles.max_sink_rate, &(_parameters.max_sink_rate));
-	param_get(_parameter_handles.throttle_damp, &(_parameters.throttle_damp));
-	param_get(_parameter_handles.integrator_gain, &(_parameters.integrator_gain));
-	param_get(_parameter_handles.vertical_accel_limit, &(_parameters.vertical_accel_limit));
-	param_get(_parameter_handles.height_comp_filter_omega, &(_parameters.height_comp_filter_omega));
-	param_get(_parameter_handles.speed_comp_filter_omega, &(_parameters.speed_comp_filter_omega));
-	param_get(_parameter_handles.roll_throttle_compensation, &(_parameters.roll_throttle_compensation));
-	param_get(_parameter_handles.speed_weight, &(_parameters.speed_weight));
-	param_get(_parameter_handles.pitch_damping, &(_parameters.pitch_damping));
-	param_get(_parameter_handles.max_climb_rate, &(_parameters.max_climb_rate));
-	param_get(_parameter_handles.climbout_diff, &(_parameters.climbout_diff));
-
-	param_get(_parameter_handles.heightrate_p, &(_parameters.heightrate_p));
-	param_get(_parameter_handles.heightrate_ff, &(_parameters.heightrate_ff));
-	param_get(_parameter_handles.speedrate_p, &(_parameters.speedrate_p));
-
-	param_get(_parameter_handles.land_slope_angle, &(_parameters.land_slope_angle));
-	param_get(_parameter_handles.land_H1_virt, &(_parameters.land_H1_virt));
-	param_get(_parameter_handles.land_flare_alt_relative, &(_parameters.land_flare_alt_relative));
-	param_get(_parameter_handles.land_thrust_lim_alt_relative, &(_parameters.land_thrust_lim_alt_relative));
-
-	/* check if negative value for 2/3 of flare altitude is set for throttle cut */
-	if (_parameters.land_thrust_lim_alt_relative < 0.0f) {
-		_parameters.land_thrust_lim_alt_relative = 0.66f * _parameters.land_flare_alt_relative;
-	}
-
-	param_get(_parameter_handles.land_heading_hold_horizontal_distance,
-		  &(_parameters.land_heading_hold_horizontal_distance));
-	param_get(_parameter_handles.land_flare_pitch_min_deg, &(_parameters.land_flare_pitch_min_deg));
-	param_get(_parameter_handles.land_flare_pitch_max_deg, &(_parameters.land_flare_pitch_max_deg));
-	param_get(_parameter_handles.land_use_terrain_estimate, &(_parameters.land_use_terrain_estimate));
-	param_get(_parameter_handles.land_airspeed_scale, &(_parameters.land_airspeed_scale));
-	param_get(_parameter_handles.vtol_type, &(_parameters.vtol_type));
-
-
-
-	/* sanity check parameters */
-	if (_parameters.airspeed_max < _parameters.airspeed_min ||
-	    _parameters.airspeed_max < 5.0f ||
-	    _parameters.airspeed_min > 100.0f ||
-	    _parameters.airspeed_trim < _parameters.airspeed_min ||
-	    _parameters.airspeed_trim > _parameters.airspeed_max) {
-
-		PX4_WARN("error: airspeed parameters invalid");
-		return PX4_ERROR;
-	}
-
-
-
-	/* Update and publish the navigation capabilities */
-	_fw_pos_ctrl_status.landing_slope_angle_rad = _landingslope.landing_slope_angle_rad();
-	_fw_pos_ctrl_status.landing_horizontal_slope_displacement = _landingslope.horizontal_slope_displacement();
-	_fw_pos_ctrl_status.landing_flare_length = _landingslope.flare_length();
-	fw_pos_ctrl_status_publish();
+	param_get(_parameter_handles._k_QE, &_k_QE);
+	param_get(_parameter_handles._k_i_QE, &_k_i_QE);
+	param_get(_parameter_handles._k_pitch_E, &_k_pitch_E);
+	param_get(_parameter_handles._k_HE, &_k_HE);
+	param_get(_parameter_handles._k_HdotE, &_k_HdotE);
+	param_get(_parameter_handles._k_i_HdotE, &_k_i_HdotE);
+	param_get(_parameter_handles._k_Vmax, &_k_Vmax);
+	param_get(_parameter_handles._k_Vmin, &_k_Vmin);
+	param_get(_parameter_handles._k_Vcru, &_k_Vcru);
+	param_get(_parameter_handles._k_AxP, &_k_AxP);
+	param_get(_parameter_handles._k_i_AxP, &_k_i_AxP);
+	param_get(_parameter_handles._k_Vas, &_k_Vas);
+	param_get(_parameter_handles._k_yaw_R, &_k_yaw_R);
+	param_get(_parameter_handles._k_YR, &_k_YR);
+	param_get(_parameter_handles._k_RR, &_k_RR);
+	param_get(_parameter_handles._k_YA, &_k_YA);
+	param_get(_parameter_handles._k_i_YA, &_k_i_YA);
+	param_get(_parameter_handles._k_yaw_A, &_k_yaw_A);
+	param_get(_parameter_handles._k_roll_A, &_k_roll_A);
+	param_get(_parameter_handles._k_PA, &_k_PA);
+	param_get(_parameter_handles._k_i_PA, &_k_i_PA);
 
 
 	return PX4_OK;
@@ -218,9 +127,9 @@ FixedwingPositionControl::vehicle_status_poll()
 	if (updated) {
 		orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vehicle_status);
 		/* set correct uORB ID, depending on if vehicle is VTOL or not */
-		if (_attitude_setpoint_id == nullptr) {
-			_attitude_setpoint_id = ORB_ID(vehicle_attitude_setpoint);
-		}
+		// if (_attitude_setpoint_id == nullptr) {
+		// 	_attitude_setpoint_id = ORB_ID(vehicle_attitude_setpoint);
+		// }
 	}
 }
 
@@ -251,26 +160,46 @@ FixedwingPositionControl::manual_control_setpoint_poll()
 
 
 
+void FixedwingPositionControl::global_pos_poll()
+{
+	bool updated;
+	/* Check if manual setpoint has changed */
+	orb_check(_global_pos_sub, &updated);
+
+	if (updated) {
+		/* load local copies */
+		orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);
+
+		//cai get height and heightDot, todo, maybe we need filter later.....
+		_height = _global_pos.alt;
+		_heightDot = -_global_pos.vel_d;
+	}
+}
+
+			
+
+
+
 
 void
-FixedwingPositionControl::control_state_poll()
+FixedwingPositionControl::control_state_update()
 {
-	/* check if there is a new position */
-	bool ctrl_state_updated;
-	orb_check(_ctrl_state_sub, &ctrl_state_updated);
 
-	if (ctrl_state_updated) {
-		orb_copy(ORB_ID(control_state), _ctrl_state_sub, &_ctrl_state);
-		_airspeed_valid = _ctrl_state.airspeed_valid;
+	orb_copy(ORB_ID(control_state), _ctrl_state_sub, &_ctrl_state);
+
+	if (_ctrl_state.airspeed_valid)
+	{
 		_airspeed_last_received = hrt_absolute_time();
-
+		_airspeed_valid = true;
 	} else {
-
-		/* no airspeed updates for one second */
-		if (_airspeed_valid && (hrt_absolute_time() - _airspeed_last_received) > 1e6) {
+		/* no valid airspeed for one second */
+		if ((hrt_absolute_time() - _airspeed_last_received) > 1e6) {
 			_airspeed_valid = false;
+			printf("airspeed invalid\n");
+			mavlink_log_info(&_mavlink_log_pub, "#airpeed invalid!");
 		}
 	}
+
 
 	if (_airspeed_valid)
 	{
@@ -301,14 +230,11 @@ FixedwingPositionControl::position_setpoint_triplet_poll()
 
 		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND)
 		{
-			static int i  = 0 ;
-			if (i == 0)
+			if (_land_state == 0)
 			{
-				//caitodo check if OK for only calculating this once!!!!
+				//note: only do this when climbing down, not flare.
 				_dH = _pos_sp_triplet.previous.alt - _pos_sp_triplet.current.alt;
 				_dL = get_distance_to_next_waypoint(_pos_sp_triplet.previous.lat, _pos_sp_triplet.previous.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
-
-				i++;
 			}
 		}
 	}
@@ -356,30 +282,15 @@ FixedwingPositionControl::get_terrain_altitude_takeoff(float takeoff_alt,
 }
 
 
-
-bool
-FixedwingPositionControl::in_takeoff_situation()
+void FixedwingPositionControl::reset_integral(void)
 {
-	// in air for < 10s
-	const hrt_abstime delta_takeoff = 10000000;
+	_roll_integ = 0.0f;
+	_pitch_integ = 0.0f;
+	_thrust_integ = 0.5f;  // initial value is 0.5
 
-	return (hrt_elapsed_time(&_time_went_in_air) < delta_takeoff)
-	       && (_global_pos.alt <= _takeoff_ground_alt + _parameters.climbout_diff);
+	_height_integ = 0.0f;  //for pitch control
+	_track_integ = 0.0f;  //for roll control
 }
-
-void
-FixedwingPositionControl::do_takeoff_help(float *hold_altitude, float *pitch_limit_min)
-{
-	/* demand "climbout_diff" m above ground if user switched into this mode during takeoff */
-	if (in_takeoff_situation()) {
-		*hold_altitude = _takeoff_ground_alt + _parameters.climbout_diff;
-		*pitch_limit_min = radians(10.0f);
-
-	} else {
-		*pitch_limit_min = _parameters.pitch_limit_min;
-	}
-}
-
 
 //this function is from ecl_l1_pos_controller.cpp
 math::Vector<2> FixedwingPositionControl::get_local_planar_vector(const math::Vector<2> &origin, const math::Vector<2> &target) const
@@ -396,7 +307,7 @@ math::Vector<2> FixedwingPositionControl::get_local_planar_vector(const math::Ve
  *  _trackError
  *   _trackErrorVel
  *    _trackAngle; */
-void FixedwingPositionControl::calcTrackInfo(const math::Vector<2> &ground_speed_vector)
+void FixedwingPositionControl::calcTrackInfo()
 {
 	math::Vector<2> vector_A{(float)_pos_sp_triplet.previous.lat, (float)_pos_sp_triplet.previous.lon};
 
@@ -414,7 +325,7 @@ void FixedwingPositionControl::calcTrackInfo(const math::Vector<2> &ground_speed
 	 * skip A and directly continue to B
 	 */
 	if (vector_AB.length() < 1.0e-6f) {
-		vector_AB = get_local_planar_vector(vector_curr_position, vector_B);
+		vector_AB = get_local_planar_vector(vector_cur, vector_B);
 	}
 
 	vector_AB.normalize();
@@ -423,31 +334,34 @@ void FixedwingPositionControl::calcTrackInfo(const math::Vector<2> &ground_speed
 	math::Vector<2> vector_A_to_airplane = get_local_planar_vector(vector_A, vector_cur);
 
 
-	_pos_sp_triplet.previous.lat, _pos_sp_triplet.previous.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon;
-
 	_trackAngle = get_bearing_to_next_waypoint(_pos_sp_triplet.previous.lat, _pos_sp_triplet.previous.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
 
 	//caitod check the sign of the value
 	_trackError    = vector_A_to_airplane % vector_AB;
-	_trackErrorVel = ground_speed_vector % vector_AB;
+	// _trackErrorVel = ground_speed_vector % vector_AB;
 }
 
+
+float FixedwingPositionControl::softenCmd(float lastCmd, float thisCmd, float dt, float rate)
+{
+	return constrain(thisCmd, lastCmd-rate*dt, lastCmd+rate*dt);
+}
 
 
 void FixedwingPositionControl::control_thrust(float v_dmd, float dt)
 {
 	//demanded acceleration X;
-	float _accX_dmd   =  _k_Vas*(_ctrl_state.airspeed - v_dmd);
+	float _accX_dmd   =  _k_Vas*(v_dmd - _ctrl_state.airspeed);
 	_accX_dmd = constrain(_accX_dmd, -2.0f, 2.0f);
 
-	float i_term = _ctrl_state.x_acc - _accX_dmd - G_CONST*sinf(_pitch);
+	float temp = _accX_dmd - _ctrl_state.x_acc + G_CONST*sinf(_pitch);
 
-	i_term = constrain(i_term, -2.0f, 2.0f);
 
-	_thrust_integ += dt * _k_i_AxP * i_term;
-	_thrust_integ = constrain(-0.3f, 1.0f);
 
-	float p_term = _k_AxP * (_ctrl_state.x_acc - G_CONST*sinf(_pitch));
+	_thrust_integ += dt * _k_i_AxP * constrain(temp, -2.0f, 2.0f);
+	_thrust_integ = constrain(_thrust_integ, -0.3f, 1.0f);
+
+	float p_term = _k_AxP * temp;
 	p_term       = constrain(p_term, -0.3f, 0.3f);
 
 	_thrust_cmd = p_term + _thrust_integ;
@@ -458,78 +372,96 @@ void FixedwingPositionControl::control_thrust(float v_dmd, float dt)
  * @param
  * caitod  add mode param to this function
  */
-void FixedwingPositionControl::control_pitch(float pitch_ref, float height_dot_dmd, float float dt)
+void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, float dt)
 {
-	static float height_integ = 0.0f;
+	static float last_pitch_dmd = 0.0f;
 
-	float pitch_rate_dmd = 0.0f
+	float pitch_rate_dmd = 0.0f;
+	float pitch_dmd = 0.0f;
 
 	//calculate  pitch_rate_dmd in diffrent modes
-	if(in_mission_mode)
-	{
-		height_integ += constrain(_heightDot - height_dot_dmd, -0.5f, 0.5f) * dt * _k_i_HdotE;
-		height_integ = constrain(height_integ, radians(-5.0f), radians(5.0f));
+	if (method == 1) {  //take off
+		pitch_dmd = radians(15.0f);
+	} else 	{  // mission
 
-		float pitch_dmd = height_integ + _k_HdotE * (_heightDot - height_dot_dmd) + pitch_ref;
+		_height_integ += constrain(height_dot_dmd - _heightDot, -0.5f, 0.5f) * dt * _k_i_HdotE;
+		_height_integ = constrain(_height_integ, radians(-15.0f), radians(15.0f));
 
-		pitch_rate_dmd = _k_pitch_E * (_pitch - pitch_dmd) + (G_CONST/_airspd_constrain)*cosf(_pitch)*tanf(_roll)*sinf(_roll);
+		pitch_dmd = _height_integ + _k_HdotE * (height_dot_dmd - _heightDot);
+		pitch_dmd = softenCmd(last_pitch_dmd, pitch_dmd, dt, radians(2.0f));
+		pitch_dmd = constrain(pitch_dmd, radians(-15.0f), radians(15.0f));
+		last_pitch_dmd = pitch_dmd;
 	}
-	else if (in_takeoff_mode)
-	{
-		pitch_rate_dmd = _k_pitch_E * (_pitch - radians(15.0f));
-		pitch_rate_dmd = constrain(pitch_rate_dmd, -radians(2.0f), radians(2.0f));
-	}
+	
 
+	pitch_rate_dmd = constrain(_k_pitch_E * (pitch_dmd - _pitch), -radians(2.0f), radians(2.0f));
 
 	float pitch_rate_error = _ctrl_state.pitch_rate - pitch_rate_dmd;
 
 	_pitch_integ += _k_i_QE * dt* constrain(pitch_rate_error, -radians(2.0f), radians(2.0f));
-	_pitch_integ = constrain(_pitch_integ, -radians(15.0f), radians(15.0f));
+	_pitch_integ = constrain(_pitch_integ, -radians(20.0f), radians(20.0f));
 
 
 	float p_term = _k_QE * pitch_rate_error;
 	p_term = constrain(p_term, -radians(3.0f), radians(3.0f));
 
-	_pitch_cmd = _scaler * (p_term + _pitch_integ + _k_QF * pitch_rate_dmd);
+	_pitch_cmd = _scaler * (p_term + _pitch_integ);
 }
 
 
+
+/**
+ * [FixedwingPositionControl::control_roll description]
+ * @param method [1=level plane; 2=normal control roll]
+ * @param dt     [description]
+ */
 void FixedwingPositionControl::control_roll(int method, float dt)
 {
-	static float track_integ = 0.0f;
+	static float last_roll_dmd = 0.0f;
 	
-	float yaw_track = 0.0f;
 	if (method == 1)
 	{
 		_roll_cmd = _k_PA * _ctrl_state.roll_rate + _k_roll_A * _roll;
 	}else{
-		float trackErrorVError = _trackErrorVel - _k_YA *constrain(_trackError, -200.0f, 200.0f);
+		_track_integ += _k_i_YA * dt * constrain(_trackError, -5.0f, 5.0f);
+		_track_integ = constrain(_track_integ, -radians(5.0f), radians(5.0f));
 
-		track_integ += _k_i_YdotA * dt * constrain(trackErrorVError, -1.0f, 1.0f);
-		track_integ = constrain(track_integ, -radians(2.0f), radians(2.0f));
+		float roll_dmd = _k_yaw_A * (_trackAngle - _yaw) - _k_YA * _trackError - _track_integ;
 
-		float roll_dmd = _k_YdotA * trackErrorVError + track_integ + _k_yaw_A * (_yaw-yaw_track);
+		roll_dmd = softenCmd(last_roll_dmd, roll_dmd, dt, radians(3.0f));
 		roll_dmd = constrain(roll_dmd, -radians(30.0f), radians(30.0f));
+		last_roll_dmd = roll_dmd;
 
-		float roll_rate_dmd = _k_roll_A * (_roll - roll_dmd) - (G_CONST/_airspd_constrain)*tanf(_roll)*sinf(_pitch);
-		roll_rate_dmd  = constrain(roll_rate_dmd, -radians(5.0f), radians(5.0f));
+		float roll_rate_dmd = _k_roll_A * (roll_dmd - _roll) - (G_CONST/_airspd_constrain)*tanf(_roll)*sinf(_pitch);
+		roll_rate_dmd  = constrain(roll_rate_dmd, -radians(3.0f), radians(3.0f));
 
-		_roll_integ += _k_i_PA*dt * (_ctrl_state.roll_rate - roll_rate_dmd);
-		_roll_integ = constrain(_roll_integ, -radians(10.0f), radians(10.0f));
+		_roll_integ += _k_i_PA*dt * constrain(_ctrl_state.roll_rate - roll_rate_dmd, -radians(2.0f), radians(2.0f));
+		_roll_integ = constrain(_roll_integ, -radians(20.0f), radians(20.0f));
 
-		_roll_cmd = _scaler * _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ + _k_PF*roll_rate_dmd;
+		_roll_cmd = _scaler *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
 	}
 }
 
-
-void FixedwingPositionControl::control_yaw(float dt)
+/**
+ * [FixedwingPositionControl::control_yaw description]
+ * @param method  [1=  below 2 meters, ]
+ * @param yaw_dmd [description]
+ * @param dt      [description]
+ */
+void FixedwingPositionControl::control_yaw(int method, float yaw_dmd, float dt)
 {
-	float yaw_rate_dmd = G_CONST/_airspd_constrain * tanf(_roll)*cosf(_roll)*cosf(_pitch);
+	if (method==1) {
+		float yaw_term = constrain(_k_yaw_R * (_yaw - yaw_dmd), radians(-5.0f), radians(5.0f));
+		float track_term = constrain(_k_YR * _trackError, radians(-3.0f), radians(3.0f));
 
-	_yaw_integ += _k_i_RA*dt*constrain(_ctrl_state.yaw_rate - yaw_rate_dmd, -radians(1.0f), radians(1.0f));
-	_yaw_integ = constrain(_yaw_integ, -radians(5.0f), radians(5.0f));
+		_yaw_cmd     = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term+track_term + _k_RR * _ctrl_state.yaw_rate);
+		_wheel_cmd   = _wheel_cmd;
+	} else {
+		float yaw_rate_dmd = G_CONST/_airspd_constrain * tanf(_roll)*cosf(_roll)*cosf(_pitch);
 
-	_yaw_cmd = _scaler * _k_RA*(_ctrl_state.yaw_rate - yaw_rate_dmd) + _yaw_integ + _k_RF * yaw_rate_dmd;
+		_yaw_cmd   = _scaler * _k_RR*(_ctrl_state.yaw_rate - yaw_rate_dmd);
+		_wheel_cmd = 0;
+	}
 }
 
 
@@ -568,8 +500,6 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		nav_speed_2d = ground_speed;
 	}
 
-	/* no throttle limit as default */
-	float throttle_max = 1.0f;
 
 	/* save time when airplane is in air */
 	if (!_was_in_air && !_vehicle_land_detected.landed) {
@@ -606,28 +536,13 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		_att_sp.pitch_reset_integral = false;
 		_att_sp.yaw_reset_integral = false;
 
-
-		float mission_airspeed = _parameters.airspeed_trim;
-
-		if (PX4_ISFINITE(pos_sp_curr.cruising_speed) &&
-		    pos_sp_curr.cruising_speed > 0.1f) {
-
-			mission_airspeed = pos_sp_curr.cruising_speed;
-		}
-
-		float mission_throttle = _parameters.throttle_cruise;
-
-		if (PX4_ISFINITE(pos_sp_curr.cruising_throttle) &&
-		    pos_sp_curr.cruising_throttle > 0.01f) {
-
-			mission_throttle = pos_sp_curr.cruising_throttle;
-		}
-
-
 		//calculate tranck Error speed, and track angle
-		calcTrackInfo(nav_speed_2d);
+		calcTrackInfo(/*nav_speed_2d*/);
 
 
+		static int statusCount = -1;
+	//	static bool lastStatus = true;
+		static hrt_abstime land_low_alt_T{0};
 		float height_dot_dmd = 0.0f;
 		switch(pos_sp_curr.type)
 		{
@@ -637,14 +552,16 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 			_att_sp.pitch_body = 0.0f;
 			break;
 		case position_setpoint_s::SETPOINT_TYPE_TAKEOFF:
+			_land_state = 0;
 			switch(_takeoff_state)
 			{
 			case -1:   //takeoff uninitialized
 				if (_control_mode.flag_armed)
 				{
+					reset_integral();
+
 					_takeoff_state = 0;
-					_tkoff_wp(0) = (float)_global_pos.lat;
-					_tkoff_wp(1) = (float)_global_pos.lon;
+
 					_tkoff_alt   = _global_pos.alt;
 
 					_tkoff_yaw = get_bearing_to_next_waypoint(_global_pos.lat, _global_pos.lat, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
@@ -652,8 +569,6 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 					mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff started");
 				}
 		
-				_thrust_integ = 0.5f;
-
 				_pitch_cmd = 0.0f;
 				_roll_cmd  = 0.0f;
 				_yaw_cmd   = 0.0f;
@@ -663,133 +578,166 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 				_pitch_cmd = 0.0f;
 
 				//calculate thrust cmd
-				control_thrust(15.0f);
-
+				control_thrust(15.0f, dt);
 				control_roll(1, dt);
+				control_yaw(1, _tkoff_yaw, dt);
 
-				//calculate wheel and yaw cmd
+				if (_ctrl_state.airspeed > 10.0f) {
+					statusCount++;
+					if (statusCount>=6){
+						_takeoff_state = 1;
+						//reset thrust integerator
+						_thrust_integ = 0.5f;
+						mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff airspeed reached");
 
-				float yaw_term = constrain(_k_yaw * (_yaw - _tkoff_yaw), radians(-5.0f), radians(5.0f));
-				float track_term = constrain(_k_track * _trackError, radians(-3.0f), radians(3.0f));
-				_wheel_cmd = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term+track_term);
-				_yaw_cmd   = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term + _k_R*_ctrl_state.yaw_rate + track_term);
-
-				if (_ctrl_state.airspeed > _k_Vmin) {
-					takeoff_state = 1;
-					//reset thrust integerator
-					_thrust_integ = 0.5f;
-					mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff airspeed reached");
+						statusCount = 0;
+					}
+				} else {
+					statusCount = 0;
 				}
 				break;
 			case 1:  //reached airspeed,  front wheel liftoff
-				control_thrust(15.0f);
+				control_thrust(15.0f, dt);
 
 				//calculate demanded pitch;
-				control_pitch(dt);
-
+				control_pitch(1, 0.0f, dt);
 				control_roll(1,dt);
+				control_yaw(1, _tkoff_yaw, dt);
 
-				//calculate wheel and yaw cmd
-
-				float yaw_term = constrain(_k_yaw * (_yaw - _tkoff_yaw), radians(-5.0f), radians(5.0f));
-				float track_term = constrain(_k_track * _trackError, radians(-3.0f), radians(3.0f));
-				_wheel_cmd = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term+track_term);
-				_yaw_cmd   = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term + _k_R*_ctrl_state.yaw_rate + track_term);
-
-
-				if (_global_pos.alt > _tkoff_alt+15.0f)
-				{
-					takeoff_state = 2;
-					mavlink_log_info(&_mavlink_log_pub, "#cdcNavigating to waypoint");
+				if (_global_pos.alt > _tkoff_alt+15.0f) {
+					statusCount++;
+					if (statusCount>=6) {
+						_takeoff_state = 2;
+						mavlink_log_info(&_mavlink_log_pub, "#cdcNavigating to waypoint");
+						statusCount = 0;
+					}
+				} else {
+					statusCount = 0;
 				}
 				break;
-			case 2:
-				height_dot_dmd = _k_HE * (_height - (_global_pos.alt-pos_sp_curr.alt));
-				height_dot_dmd = cosntrain(height_dot_dmd, -3.0f, 3.0f);
+			case 2:  //consider takeoff waypoint as a common navigating waypoint!!!
+				height_dot_dmd = _k_HE * (pos_sp_curr.alt - _height);
+				height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
+				control_pitch(2, height_dot_dmd,  dt);
 
-				control_pitch(radians(2.0f), height_dot_dmd,  dt);
-
-				if (_global_pos.alt > _tkoff_alt +15.0f)
-				{
-					control_roll(2, dt);
-				}else {
-					control_roll(1, dt);
-				}
-
+				control_roll(2, dt);
 				control_thrust(15.0f, dt);
-				control_yaw(dt);
+				control_yaw(2, _tkoff_yaw, dt);
 				break;
 			}
 
 			break;
 		case position_setpoint_s::SETPOINT_TYPE_POSITION:
+			_land_state = 0;
+			// reset statusCount when waypoint transition?????
+			statusCount = 0;
+			
+
 			//calculate demanded pitch rate
-			height_dot_dmd = _k_HE * (_height - (_global_pos.alt-pos_sp_curr.alt));
-			height_dot_dmd = cosntrain(height_dot_dmd, -3.0f, 3.0f);
+			height_dot_dmd = _k_HE * (pos_sp_curr.alt - _height);
+			height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
 
-			control_pitch(radians(2.0f), height_dot_dmd,  dt);
-
-			if (_global_pos.alt > _tkoff_alt +15.0f)
-			{
-				control_roll(2, dt);
-			}else {
-				control_roll(1, dt);
-			}
-
+			control_pitch(2, height_dot_dmd,  dt);
+			control_roll(2, dt);
 			control_thrust(15.0f, dt);
-
-			control_yaw(dt);
+			control_yaw(2, _trackAngle, dt);
 			break;
 		case position_setpoint_s::SETPOINT_TYPE_LAND:
-
-			//calculate pitch control cmd
-			if (_global_pos.alt > _tkoff_alt +15.0f)
+			switch(_land_state)
 			{
-				float height_dmd = 	float get_distance_to_next_waypoint(_global_pos.lat, _global_pos.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
+			case 0:
+				{
+				float height_dmd = 	get_distance_to_next_waypoint(_global_pos.lat, _global_pos.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
 				height_dmd *= _dH/_dL; //relative height
 
 
 				height_dot_dmd = _k_HE *(_global_pos.alt - height_dmd- _tkoff_alt) + ground_speed.length() *tanf(_dH/_dL);
 				height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
-				control_pitch(radians(-3.0f), height_dot_dmd, dt);
-			} else{
-				height_dot_dmd = ground_speed.length() *tanf(_dH/_dL) * expf(0.1f*(_global_pos.alt- _tkoff_alt-15.0f));
-				height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
-				control_pitch(0.0f, height_dot_dmd, dt);
-			}
+				control_pitch(2, height_dot_dmd, dt);
 
-			//roll, yaw and thrust
-			control_thrust(8.0f, dt);
-
-			static hrt_abstime land_low_alt_T{0};
-			if (_global_pos.alt > _tkoff_alt +2.0f)
-			{
 				control_roll(2, dt);
-				control_yaw(dt);
-				land_low_alt_T = hrt_absolute_time();
-			} else{
-				control_roll(1, dt);
+				control_thrust(15.0f, dt);
+				control_yaw(2, _trackAngle, dt);
 
-				//_trackAngle is the runway angle!!!!
-				float yaw_term = constrain(_k_yaw * (_yaw - _trackAngle), radians(-5.0f), radians(5.0f));
-				float track_term = constrain(_k_track * _trackError, radians(-3.0f), radians(3.0f));
-				_wheel_cmd = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term+track_term);
-				_yaw_cmd   = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term + _k_R*_ctrl_state.yaw_rate + track_term);
-				
-				//stop motors if height below 2m for 5 seconds!!
-				if (hrt_absolute_time() - land_low_alt_T > 5000000)
-				{
-					_roll_cmd = 0.0f;
-					_pitch_cmd = 0.0f;
-					_yaw_cmd = 0.0f;
-					_thrust_cmd = 0.0f;
-					_wheel_cmd = 0.0f;
+				if (_global_pos.alt < _tkoff_alt +15.0f){
+					statusCount++;
+					if (statusCount>=6)	{
+						_land_state = 1;
+
+						mavlink_log_info(&_mavlink_log_pub, "#land flare!!");
+						statusCount = 0;
+					}
+				} else{
+					statusCount = 0;
 				}
-				
+				}
+				break;
+			case 1:  //flare
+				height_dot_dmd = ground_speed.length() *tanf(_dH/_dL) * expf(0.1f*(_global_pos.alt- _tkoff_alt-15.0f));
+				if (height_dot_dmd > -0.4f)
+				{
+					height_dot_dmd = -0.4f;
+				}
+				height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
+				control_pitch(2, height_dot_dmd, dt);
+				control_roll(2, dt);
+				control_thrust(15.0f, dt);
+				control_yaw(2, _trackAngle, dt);
+
+				if (_global_pos.alt < _tkoff_alt +2.0f) {
+					statusCount++;
+					if (statusCount>=6) {
+						_land_state = 2;
+						mavlink_log_info(&_mavlink_log_pub, "#landing to ground!!");
+						statusCount = 0;
+					}
+				} else {
+					statusCount = 0;
+				}
+				break;
+			case 2:  // landing to ground!!
+				if (_global_pos.alt < _tkoff_alt +2.0f) {
+					//stop motors if height below 2m for 5 seconds!!
+					if (hrt_absolute_time() - land_low_alt_T > 5000000)
+					{
+						if (_land_state != -1)
+						{
+							mavlink_log_info(&_mavlink_log_pub, "#landed, stop motors!!");
+						}
+						_roll_cmd = 0.0f;
+						_pitch_cmd = 0.0f;
+						_yaw_cmd = 0.0f;
+						_thrust_cmd = 0.0f;
+						_wheel_cmd = 0.0f;
+						_land_state = -1;
+
+						//reset all integrators!!
+						reset_integral();
+						break;  // break the control calculation in advance!!!!
+					}
+				} else {
+					land_low_alt_T = hrt_absolute_time();
+				}
+
+
+				height_dot_dmd = ground_speed.length() *tanf(_dH/_dL) * expf(0.1f*(_global_pos.alt- _tkoff_alt-15.0f));
+				if (height_dot_dmd > -0.4f)
+				{
+					height_dot_dmd = -0.4f;
+				}
+				height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
+				control_pitch(2, height_dot_dmd, dt);
+
+				control_roll(1, dt);
+				control_thrust(8.0f, dt);
+				control_yaw(1, _trackAngle, dt);
+				break;
+			default :
+				break;
 			}
 			break;
 		default:
-		break;
+			break;
 		}
 	} 
 	else {
@@ -804,12 +752,14 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		/* reset landing and takeoff state */
 		if (!_last_manual) {
 			reset_landing_state();
-			reset_takeoff_state();
 		}
 	}
 
 	
 	if (_control_mode.flag_control_position_enabled) {
+		if (_last_manual) {
+			reset_integral();
+		}
 		_last_manual = false;
 
 	} else {
@@ -818,8 +768,6 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 	return setpoint;
 }
-
-
 
 
 void
@@ -860,7 +808,8 @@ FixedwingPositionControl::task_main()
 	/* Setup of loop */
 	fds[0].fd = _params_sub;
 	fds[0].events = POLLIN;
-	fds[1].fd = _global_pos_sub;
+
+	fds[1].fd = _ctrl_state_sub;
 	fds[1].events = POLLIN;
 
 	_task_running = true;
@@ -900,17 +849,9 @@ FixedwingPositionControl::task_main()
 		if ((fds[1].revents & POLLIN) != 0) {
 			perf_begin(_loop_perf);
 
-			/* load local copies */
-			orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);
+			control_state_update();
 
-			//cai get height and heightDot, todo, maybe we need filter later.....
-			_height = _global_pos.alt;
-			_heightDot = -_global_pos.vel_d;
-
-
-
-
-			control_state_poll();
+			global_pos_poll();
 			manual_control_setpoint_poll();
 			position_setpoint_triplet_poll();
 
@@ -922,63 +863,26 @@ FixedwingPositionControl::task_main()
 			 * publish setpoint.
 			 */
 			if (control_position(curr_pos, ground_speed, _pos_sp_triplet.previous, _pos_sp_triplet.current)) {
-				_att_sp.timestamp = hrt_absolute_time();
+				//_att_sp.timestamp = hrt_absolute_time();
 
-				// add attitude setpoint offsets
-				_att_sp.roll_body += _parameters.rollsp_offset_rad;
-				_att_sp.pitch_body += _parameters.pitchsp_offset_rad;
 
-				if (_control_mode.flag_control_manual_enabled) {
-					_att_sp.roll_body = constrain(_att_sp.roll_body, -_parameters.man_roll_max_rad, _parameters.man_roll_max_rad);
-					_att_sp.pitch_body = constrain(_att_sp.pitch_body, -_parameters.man_pitch_max_rad, _parameters.man_pitch_max_rad);
+				_actuators.control[actuator_controls_s::INDEX_ROLL]  = constrain(_roll_cmd, -1.0f, 1.0f);
+				_actuators.control[actuator_controls_s::INDEX_PITCH]  = constrain(_pitch_cmd, -1.0f, 1.0f);
+				_actuators.control[actuator_controls_s::INDEX_YAW]  = constrain(_yaw_cmd, -1.0f, 1.0f);
+				_actuators.control[actuator_controls_s::INDEX_THROTTLE]  = constrain(_thrust_cmd, 0.0f, 1.0f);
+				_actuators.control[actuator_controls_s::INDEX_FLAPS]  = constrain(_wheel_cmd, -1.0f, 1.0f);
+
+				_actuators.timestamp = hrt_absolute_time();
+				_actuators.timestamp_sample = _ctrl_state.timestamp;
+
+		
+				if (_actuators_0_pub != nullptr) {
+					orb_publish(ORB_ID(actuator_controls_0), _actuators_0_pub, &_actuators);
+				} else {
+					_actuators_0_pub = orb_advertise(ORB_ID(actuator_controls_0), &_actuators);
 				}
 
-				Quatf q(Eulerf(_att_sp.roll_body, _att_sp.pitch_body, _att_sp.yaw_body));
-				q.copyTo(_att_sp.q_d);
-				_att_sp.q_d_valid = true;
-
-				if (!_control_mode.flag_control_offboard_enabled ||
-				    _control_mode.flag_control_position_enabled ||
-				    _control_mode.flag_control_velocity_enabled ||
-				    _control_mode.flag_control_acceleration_enabled) {
-
-					/* lazily publish the setpoint only once available */
-					if (_attitude_sp_pub != nullptr) {
-						/* publish the attitude setpoint */
-						orb_publish(_attitude_setpoint_id, _attitude_sp_pub, &_att_sp);
-
-					} else if (_attitude_setpoint_id != nullptr) {
-						/* advertise and publish */
-						_attitude_sp_pub = orb_advertise(_attitude_setpoint_id, &_att_sp);
-					}
-				}
-
-
-				//caitodo check if we need to publish this topic and how to fill the data!!
-				/* XXX check if radius makes sense here */
-				float turn_distance = _l1_control.switch_distance(100.0f);
-
-				/* lazily publish navigation capabilities */
-				if ((hrt_elapsed_time(&_fw_pos_ctrl_status.timestamp) > 1000000)
-				    || (fabsf(turn_distance - _fw_pos_ctrl_status.turn_distance) > FLT_EPSILON
-					&& turn_distance > 0)) {
-
-					/* set new turn distance */
-					_fw_pos_ctrl_status.turn_distance = turn_distance;
-
-					_fw_pos_ctrl_status.nav_roll = _l1_control.nav_roll();
-					_fw_pos_ctrl_status.nav_pitch = get_tecs_pitch();
-					_fw_pos_ctrl_status.nav_bearing = _l1_control.nav_bearing();
-
-					_fw_pos_ctrl_status.target_bearing = _l1_control.target_bearing();
-					_fw_pos_ctrl_status.xtrack_error = _l1_control.crosstrack_error();
-
-					math::Vector<2> curr_wp((float)_pos_sp_triplet.current.lat, (float)_pos_sp_triplet.current.lon);
-
-					_fw_pos_ctrl_status.wp_dist = get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1));
-
-					fw_pos_ctrl_status_publish();
-				}
+				//caitodo check if we need to publish ORB_ID(fw_pos_ctrl_status)
 			}
 
 			perf_end(_loop_perf);
@@ -992,22 +896,6 @@ FixedwingPositionControl::task_main()
 	_control_task = -1;
 }
 
-void
-FixedwingPositionControl::reset_takeoff_state()
-{
-	// only reset takeoff if !armed or just landed
-	if (!_control_mode.flag_armed || (_was_in_air && _vehicle_land_detected.landed)) {
-
-		_runway_takeoff.reset();
-
-		_launchDetector.reset();
-		_launch_detection_state = LAUNCHDETECTION_RES_NONE;
-		_launch_detection_notify = 0;
-
-	} else {
-		_launch_detection_state = LAUNCHDETECTION_RES_DETECTED_ENABLEMOTORS;
-	}
-}
 
 void
 FixedwingPositionControl::reset_landing_state()
@@ -1017,11 +905,11 @@ FixedwingPositionControl::reset_landing_state()
 	// reset terrain estimation relevant values
 	_time_last_t_alt = 0;
 
-	_land_noreturn_horizontal = false;
-	_land_noreturn_vertical = false;
-	_land_stayonground = false;
-	_land_motor_lim = false;
-	_land_onslope = false;
+	// _land_noreturn_horizontal = false;
+	// _land_noreturn_vertical = false;
+	// _land_stayonground = false;
+	// _land_motor_lim = false;
+	// _land_onslope = false;
 
 	// reset abort land, unless loitering after an abort
 	if (_fw_pos_ctrl_status.abort_landing
