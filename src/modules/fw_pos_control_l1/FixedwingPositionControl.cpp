@@ -36,6 +36,18 @@ FixedwingPositionControl::FixedwingPositionControl() :
 	_parameter_handles._k_PA  = 	param_find("FW_RR_P");
 	_parameter_handles._k_i_PA  = 	param_find("FW_RR_I");
 
+
+
+	_parameter_handles.land_slope_angle = param_find("FW_LND_ANG");
+	_parameter_handles.land_H1_virt = param_find("FW_LND_HVIRT");
+	_parameter_handles.land_flare_alt_relative = param_find("FW_LND_FLALT");
+	_parameter_handles.land_flare_pitch_min_deg = param_find("FW_LND_FL_PMIN");
+	_parameter_handles.land_flare_pitch_max_deg = param_find("FW_LND_FL_PMAX");
+	_parameter_handles.land_thrust_lim_alt_relative = param_find("FW_LND_TLALT");
+	_parameter_handles.land_heading_hold_horizontal_distance = param_find("FW_LND_HHDIST");
+	_parameter_handles.land_use_terrain_estimate = param_find("FW_LND_USETER");
+	_parameter_handles.land_airspeed_scale = param_find("FW_LND_AIRSPD_SC");
+
 	/* fetch initial parameter values */
 	parameters_update();
 
@@ -43,6 +55,30 @@ FixedwingPositionControl::FixedwingPositionControl() :
 	_land_state = -1;
 
 	_actuators = {};
+
+
+
+	//cai publish ORB_ID(fw_pos_ctrl_status) for navigator mission checker
+	param_get(_parameter_handles.land_slope_angle, &(land_slope_angle));
+	param_get(_parameter_handles.land_H1_virt, &(land_H1_virt));
+	param_get(_parameter_handles.land_flare_alt_relative, &(land_flare_alt_relative));
+	param_get(_parameter_handles.land_thrust_lim_alt_relative, &(land_thrust_lim_alt_relative));
+	// param_get(_parameter_handles.land_heading_hold_horizontal_distance,
+	// 	  &(land_heading_hold_horizontal_distance));
+	// param_get(_parameter_handles.land_flare_pitch_min_deg, &(land_flare_pitch_min_deg));
+	// param_get(_parameter_handles.land_flare_pitch_max_deg, &(land_flare_pitch_max_deg));
+	// param_get(_parameter_handles.land_use_terrain_estimate, &(land_use_terrain_estimate));
+	// param_get(_parameter_handles.land_airspeed_scale, &(land_airspeed_scale));
+	// param_get(_parameter_handles.vtol_type, &(vtol_type));
+
+	_landingslope.update(radians(land_slope_angle), land_flare_alt_relative,
+			     land_thrust_lim_alt_relative, land_H1_virt);
+	
+	/* Update and publish the navigation capabilities */
+	_fw_pos_ctrl_status.landing_slope_angle_rad = radians(5.0f);
+	_fw_pos_ctrl_status.landing_horizontal_slope_displacement = _landingslope.horizontal_slope_displacement();
+	_fw_pos_ctrl_status.landing_flare_length = _landingslope.flare_length();
+	fw_pos_ctrl_status_publish();
 }
 
 FixedwingPositionControl::~FixedwingPositionControl()
@@ -406,6 +442,8 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 	p_term = constrain(p_term, -radians(3.0f), radians(3.0f));
 
 	_pitch_cmd = _scaler * (p_term + _pitch_integ);
+
+	printf("pitch_cmd = %.4f;\n", double(_pitch_cmd));
 }
 
 
@@ -883,6 +921,31 @@ FixedwingPositionControl::task_main()
 				}
 
 				//caitodo check if we need to publish ORB_ID(fw_pos_ctrl_status)
+				
+				// /* XXX check if radius makes sense here */
+				// float turn_distance = _l1_control.switch_distance(100.0f);
+
+				// /* lazily publish navigation capabilities */
+				// if ((hrt_elapsed_time(&_fw_pos_ctrl_status.timestamp) > 1000000)
+				//     || (fabsf(turn_distance - _fw_pos_ctrl_status.turn_distance) > FLT_EPSILON
+				// 	&& turn_distance > 0)) {
+
+				// 	/* set new turn distance */
+				// 	_fw_pos_ctrl_status.turn_distance = turn_distance;
+
+				// 	_fw_pos_ctrl_status.nav_roll = _l1_control.nav_roll();
+				// 	_fw_pos_ctrl_status.nav_pitch = get_tecs_pitch();
+				// 	_fw_pos_ctrl_status.nav_bearing = _l1_control.nav_bearing();
+
+				// 	_fw_pos_ctrl_status.target_bearing = _l1_control.target_bearing();
+				// 	_fw_pos_ctrl_status.xtrack_error = _l1_control.crosstrack_error();
+
+				// 	math::Vector<2> curr_wp((float)_pos_sp_triplet.current.lat, (float)_pos_sp_triplet.current.lon);
+
+				// 	_fw_pos_ctrl_status.wp_dist = get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1));
+
+				// 	fw_pos_ctrl_status_publish();
+				// }
 			}
 
 			perf_end(_loop_perf);

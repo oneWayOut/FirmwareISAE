@@ -135,6 +135,8 @@ private:
 	orb_advert_t	_actuators_0_pub;
 	struct actuator_controls_s	_actuators;		/**< actuator control inputs */
 
+	Landingslope _landingslope;   //caitodo delete later
+
 
 
 	control_state_s			_ctrl_state {};			///< control state */
@@ -254,6 +256,17 @@ private:
 	float _k_roll_A;
 	float _k_PA;
 	float _k_i_PA;
+	
+	//caitodo delete later
+	float land_slope_angle;
+	float land_H1_virt;
+	float land_flare_alt_relative;
+	float land_flare_pitch_min_deg;
+	float land_flare_pitch_max_deg;
+	float land_thrust_lim_alt_relative;
+	float land_heading_hold_horizontal_distance;
+	float land_use_terrain_estimate;
+	float land_airspeed_scale;
 /******* parameters  ***************/
 
 	struct {
@@ -278,6 +291,17 @@ private:
 		param_t _k_roll_A;
 		param_t _k_PA;
 		param_t _k_i_PA;
+
+		/*caitodo to delete later, land*/
+		param_t land_slope_angle;
+		param_t land_H1_virt;
+		param_t land_flare_alt_relative;
+		param_t land_flare_pitch_min_deg;
+		param_t land_flare_pitch_max_deg;
+		param_t land_thrust_lim_alt_relative;
+		param_t land_heading_hold_horizontal_distance;
+		param_t land_use_terrain_estimate;
+		param_t land_airspeed_scale;
 	} _parameter_handles {};				///< handles for interesting parameters */
 
 

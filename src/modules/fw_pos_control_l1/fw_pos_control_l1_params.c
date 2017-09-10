@@ -244,3 +244,126 @@ PARAM_DEFINE_FLOAT(FW_RR_P,	1.0f);
  * @group FW PLANE Control
  */
 PARAM_DEFINE_FLOAT(FW_RR_I,	1.0f);
+
+
+
+
+
+/**
+ * Landing slope angle
+ *
+ * @unit deg
+ * @min 1.0
+ * @max 15.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_ANG, 5.0f);
+
+/**
+ *
+ *
+ * @unit m
+ * @min 1.0
+ * @max 15.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_HVIRT, 10.0f);
+
+/**
+ * Landing flare altitude (relative to landing altitude)
+ *
+ * @unit m
+ * @min 0.0
+ * @max 25.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_FLALT, 8.0f);
+
+/**
+ * Landing throttle limit altitude (relative landing altitude)
+ *
+ * Default of -1.0 lets the system default to applying throttle
+ * limiting at 2/3 of the flare altitude.
+ *
+ * @unit m
+ * @min -1.0
+ * @max 30.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_TLALT, -1.0f);
+
+/**
+ * Landing heading hold horizontal distance
+ *
+ * @unit m
+ * @min 0
+ * @max 30.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_HHDIST, 15.0f);
+
+/**
+ * Use terrain estimate during landing
+ *
+ * @boolean
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_INT32(FW_LND_USETER, 0);
+
+/**
+ * Flare, minimum pitch
+ *
+ * Minimum pitch during flare, a positive sign means nose up
+ * Applied once FW_LND_TLALT is reached
+ *
+ * @unit deg
+ * @min 0
+ * @max 15.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_FL_PMIN, 2.5f);
+
+/**
+ * Flare, maximum pitch
+ *
+ * Maximum pitch during flare, a positive sign means nose up
+ * Applied once FW_LND_TLALT is reached
+ *
+ * @unit deg
+ * @min 0
+ * @max 45.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_FL_PMAX, 15.0f);
+
+/**
+ * Min. airspeed scaling factor for landing
+ *
+ * Multiplying this factor with the minimum airspeed of the plane
+ * gives the target airspeed the landing approach.
+ * FW_AIRSPD_MIN * FW_LND_AIRSPD_SC
+ *
+ * @unit norm
+ * @min 1.0
+ * @max 1.5
+ * @decimal 2
+ * @increment 0.01
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_LND_AIRSPD_SC, 1.3f);
+
+
