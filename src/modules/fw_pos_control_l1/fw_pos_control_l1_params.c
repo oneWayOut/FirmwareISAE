@@ -249,6 +249,9 @@ PARAM_DEFINE_FLOAT(FW_RR_I,	1.0f);
 
 
 
+
+
+
 /**
  * Landing slope angle
  *
@@ -367,3 +370,22 @@ PARAM_DEFINE_FLOAT(FW_LND_FL_PMAX, 15.0f);
 PARAM_DEFINE_FLOAT(FW_LND_AIRSPD_SC, 1.3f);
 
 
+
+
+
+/**
+ * Climbout Altitude difference
+ *
+ * If the altitude error exceeds this parameter, the system will climb out
+ * with maximum throttle and minimum airspeed until it is closer than this
+ * distance to the desired altitude. Mostly used for takeoff waypoints / modes.
+ * Set to 0 to disable climbout mode (not recommended).
+ *
+ * @unit m
+ * @min 0.0
+ * @max 150.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_CLMBOUT_DIFF, 10.0f);

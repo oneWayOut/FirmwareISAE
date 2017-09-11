@@ -1238,6 +1238,8 @@ FixedwingAttitudeControl::task_main()
 			if (_vcontrol_mode.flag_control_rates_enabled ||
 			    _vcontrol_mode.flag_control_attitude_enabled ||
 			    _vcontrol_mode.flag_control_manual_enabled) {
+
+				printf("cai publish from att!\n");
 				/* publish the actuator controls */
 				if (_actuators_0_pub != nullptr) {
 					orb_publish(_actuators_id, _actuators_0_pub, &_actuators);

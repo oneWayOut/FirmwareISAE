@@ -94,7 +94,7 @@ PARAM_DEFINE_FLOAT(FW_P_TC, 0.4f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-PARAM_DEFINE_FLOAT(FW_PR_P, 0.08f);
+//PARAM_DEFINE_FLOAT(FW_PR_P, 0.08f);
 
 /**
  * Pitch rate integrator gain.
@@ -109,7 +109,7 @@ PARAM_DEFINE_FLOAT(FW_PR_P, 0.08f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-PARAM_DEFINE_FLOAT(FW_PR_I, 0.02f);
+//PARAM_DEFINE_FLOAT(FW_PR_I, 0.02f);
 
 /**
  * Maximum positive / up pitch rate.
@@ -168,7 +168,7 @@ PARAM_DEFINE_FLOAT(FW_PR_IMAX, 0.4f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-PARAM_DEFINE_FLOAT(FW_RR_P, 0.05f);
+//PARAM_DEFINE_FLOAT(FW_RR_P, 0.05f);
 
 /**
  * Roll rate integrator Gain
@@ -183,7 +183,7 @@ PARAM_DEFINE_FLOAT(FW_RR_P, 0.05f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-PARAM_DEFINE_FLOAT(FW_RR_I, 0.01f);
+//PARAM_DEFINE_FLOAT(FW_RR_I, 0.01f);
 
 /**
  * Roll Integrator Anti-Windup
@@ -226,7 +226,7 @@ PARAM_DEFINE_FLOAT(FW_R_RMAX, 70.0f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-PARAM_DEFINE_FLOAT(FW_YR_P, 0.05f);
+//PARAM_DEFINE_FLOAT(FW_YR_P, 0.05f);
 
 /**
  * Yaw rate integrator gain

@@ -443,7 +443,7 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 
 	_pitch_cmd = _scaler * (p_term + _pitch_integ);
 
-	printf("pitch_cmd = %.4f;\n", double(_pitch_cmd));
+	//printf("pitch_cmd = %.4f;\n", double(_pitch_cmd));
 }
 
 
@@ -912,6 +912,14 @@ FixedwingPositionControl::task_main()
 
 				_actuators.timestamp = hrt_absolute_time();
 				_actuators.timestamp_sample = _ctrl_state.timestamp;
+
+				if (_takeoff_state == 1)
+				{
+					/* code */
+					_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.9f;
+					_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.9f;
+					_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.0f;
+				}
 
 		
 				if (_actuators_0_pub != nullptr) {
