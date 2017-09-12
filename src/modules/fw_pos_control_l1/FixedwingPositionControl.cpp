@@ -3,6 +3,10 @@
 
 #define G_CONST 9.81f
 
+
+
+static unsigned int g_counter =0;
+
 //caitodo add battery_status for thrust compensate
 
 extern "C" __EXPORT int fw_pos_control_l1_main(int argc, char *argv[]);
@@ -428,18 +432,26 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 		pitch_dmd = constrain(pitch_dmd, radians(-15.0f), radians(15.0f));
 		last_pitch_dmd = pitch_dmd;
 	}
+
+	if (_takeoff_state==1)
+	{
+		printf("pRateDmd = %.3f;\n", (double)(_k_pitch_E * (pitch_dmd - _pitch)));
+	}
 	
 
-	pitch_rate_dmd = constrain(_k_pitch_E * (pitch_dmd - _pitch), -radians(2.0f), radians(2.0f));
+	//pitch_rate_dmd = constrain(_k_pitch_E * (pitch_dmd - _pitch), -radians(2.0f), radians(2.0f));
+	//
+	pitch_rate_dmd = constrain(0.50f * (pitch_dmd - _pitch), -radians(2.0f), radians(2.0f));
 
 	float pitch_rate_error = _ctrl_state.pitch_rate - pitch_rate_dmd;
 
+	_k_i_QE = 1.0f;
 	_pitch_integ += _k_i_QE * dt* constrain(pitch_rate_error, -radians(2.0f), radians(2.0f));
-	_pitch_integ = constrain(_pitch_integ, -radians(20.0f), radians(20.0f));
+	_pitch_integ = constrain(_pitch_integ, -1.0f, 1.0f);
 
 
 	float p_term = _k_QE * pitch_rate_error;
-	p_term = constrain(p_term, -radians(3.0f), radians(3.0f));
+	p_term = constrain(p_term, -0.5f, 0.5f);
 
 	_pitch_cmd = _scaler * (p_term + _pitch_integ);
 
@@ -456,15 +468,21 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 void FixedwingPositionControl::control_roll(int method, float dt)
 {
 	static float last_roll_dmd = 0.0f;
+
 	
 	if (method == 1)
 	{
-		_roll_cmd = _k_PA * _ctrl_state.roll_rate + _k_roll_A * _roll;
+		//_roll_cmd = _k_PA * _ctrl_state.roll_rate + _k_roll_A * _roll;
+		_roll_cmd = 1.0f * _ctrl_state.roll_rate + _k_roll_A * _roll;
 	}else{
+		_trackError = 0.0f;
 		_track_integ += _k_i_YA * dt * constrain(_trackError, -5.0f, 5.0f);
 		_track_integ = constrain(_track_integ, -radians(5.0f), radians(5.0f));
 
-		float roll_dmd = _k_yaw_A * (_trackAngle - _yaw) - _k_YA * _trackError - _track_integ;
+
+		_trackAngle = 1.666f;
+		float roll_dmd = _k_yaw_A * (_trackAngle -_yaw) - _k_YA * _trackError - _track_integ;
+		//roll_dmd = 0.0f;
 
 		roll_dmd = softenCmd(last_roll_dmd, roll_dmd, dt, radians(3.0f));
 		roll_dmd = constrain(roll_dmd, -radians(30.0f), radians(30.0f));
@@ -473,11 +491,20 @@ void FixedwingPositionControl::control_roll(int method, float dt)
 		float roll_rate_dmd = _k_roll_A * (roll_dmd - _roll) - (G_CONST/_airspd_constrain)*tanf(_roll)*sinf(_pitch);
 		roll_rate_dmd  = constrain(roll_rate_dmd, -radians(3.0f), radians(3.0f));
 
-		_roll_integ += _k_i_PA*dt * constrain(_ctrl_state.roll_rate - roll_rate_dmd, -radians(2.0f), radians(2.0f));
-		_roll_integ = constrain(_roll_integ, -radians(20.0f), radians(20.0f));
+		//_roll_integ += _k_i_PA*dt * constrain(_ctrl_state.roll_rate - roll_rate_dmd, -radians(2.0f), radians(2.0f));
+		_roll_integ += 1.0f*dt * constrain(_ctrl_state.roll_rate - roll_rate_dmd, -radians(2.0f), radians(2.0f));
+		_roll_integ = constrain(_roll_integ, -1.0f, 1.0f);
 
-		_roll_cmd = _scaler *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
+		//_roll_cmd = _scaler *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
+		_roll_cmd = _scaler *( 1.0f *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
+
+		if (g_counter%20 == 0)
+		{
+			printf("dY = %.3f, rolldmd = %.3f;\n", double(_trackAngle), double(roll_dmd));
+			printf("dA, yaw = %.3f, %.3f;\n", (double)_trackAngle, (double)_yaw);
+		}
 	}
+	g_counter++;
 }
 
 /**
@@ -564,6 +591,16 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		/* reset hold yaw */
 		_hdg_hold_yaw = _yaw;
 
+		// static int mycounter = 0;
+
+		// // if(_takeoff_state>=0)
+		// // {
+		// // 	if(mycounter%50 == 0)
+		// // 		//printf("wpType = %d, lat/lon = %.5f; %.5f;\n", pos_sp_curr.type, pos_sp_curr.lat, pos_sp_curr.lon);
+		// // }
+
+		// mycounter = 0;
+
 
 
 		/* current waypoint (the one currently heading for) */
@@ -605,6 +642,8 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 					_tkoff_yaw = get_bearing_to_next_waypoint(_global_pos.lat, _global_pos.lat, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
 
 					mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff started");
+
+					printf("tk alt = %.3f, yaw = %.3f;\n", (double)_tkoff_alt,  (double)_tkoff_yaw);
 				}
 		
 				_pitch_cmd = 0.0f;
@@ -616,11 +655,11 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 				_pitch_cmd = 0.0f;
 
 				//calculate thrust cmd
-				control_thrust(15.0f, dt);
+				control_thrust(_k_Vcru, dt);
 				control_roll(1, dt);
 				control_yaw(1, _tkoff_yaw, dt);
 
-				if (_ctrl_state.airspeed > 10.0f) {
+				if (_ctrl_state.airspeed > _k_Vmin) {
 					statusCount++;
 					if (statusCount>=6){
 						_takeoff_state = 1;
@@ -635,11 +674,11 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 				}
 				break;
 			case 1:  //reached airspeed,  front wheel liftoff
-				control_thrust(15.0f, dt);
+				control_thrust(_k_Vcru, dt);
 
 				//calculate demanded pitch;
 				control_pitch(1, 0.0f, dt);
-				control_roll(1,dt);
+				control_roll(1, dt);
 				control_yaw(1, _tkoff_yaw, dt);
 
 				if (_global_pos.alt > _tkoff_alt+15.0f) {
@@ -647,6 +686,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 					if (statusCount>=6) {
 						_takeoff_state = 2;
 						mavlink_log_info(&_mavlink_log_pub, "#cdcNavigating to waypoint");
+						printf("#cdcNavigating to waypoint");
 						statusCount = 0;
 					}
 				} else {
@@ -659,13 +699,17 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 				control_pitch(2, height_dot_dmd,  dt);
 
 				control_roll(2, dt);
-				control_thrust(15.0f, dt);
+				control_thrust(_k_Vcru, dt);
 				control_yaw(2, _tkoff_yaw, dt);
 				break;
 			}
 
 			break;
 		case position_setpoint_s::SETPOINT_TYPE_POSITION:
+			if (_land_state == -1)
+			{
+				mavlink_log_info(&_mavlink_log_pub, "#switch to waypoint");
+			}
 			_land_state = 0;
 			// reset statusCount when waypoint transition?????
 			statusCount = 0;
@@ -677,7 +721,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 			control_pitch(2, height_dot_dmd,  dt);
 			control_roll(2, dt);
-			control_thrust(15.0f, dt);
+			control_thrust(_k_Vcru, dt);
 			control_yaw(2, _trackAngle, dt);
 			break;
 		case position_setpoint_s::SETPOINT_TYPE_LAND:
@@ -904,8 +948,8 @@ FixedwingPositionControl::task_main()
 				//_att_sp.timestamp = hrt_absolute_time();
 
 
-				_actuators.control[actuator_controls_s::INDEX_ROLL]  = constrain(_roll_cmd, -1.0f, 1.0f);
-				_actuators.control[actuator_controls_s::INDEX_PITCH]  = constrain(_pitch_cmd, -1.0f, 1.0f);
+				_actuators.control[actuator_controls_s::INDEX_ROLL]  = constrain(-_roll_cmd, -1.0f, 1.0f);
+				_actuators.control[actuator_controls_s::INDEX_PITCH]  = constrain(-_pitch_cmd, -1.0f, 1.0f);
 				_actuators.control[actuator_controls_s::INDEX_YAW]  = constrain(_yaw_cmd, -1.0f, 1.0f);
 				_actuators.control[actuator_controls_s::INDEX_THROTTLE]  = constrain(_thrust_cmd, 0.0f, 1.0f);
 				_actuators.control[actuator_controls_s::INDEX_FLAPS]  = constrain(_wheel_cmd, -1.0f, 1.0f);
@@ -913,14 +957,65 @@ FixedwingPositionControl::task_main()
 				_actuators.timestamp = hrt_absolute_time();
 				_actuators.timestamp_sample = _ctrl_state.timestamp;
 
-				if (_takeoff_state == 1)
+
+
+
+				// static int counter = 0;
+				// if (_takeoff_state == 1)
+				// {
+				// 	if (counter <100)
+				// 	{
+				// 		counter++;
+				// 		_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.2f;
+				// 		_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.8f;
+				// 	}else if (counter<200)
+				// 	{
+				// 		counter++;
+				// 		_actuators.control[actuator_controls_s::INDEX_PITCH] -= 0.0015f;
+				// 		_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.8f;
+				// 	}
+				// 	//printf("thrust =  %.4f;\n", (double)_actuators.control[actuator_controls_s::INDEX_THROTTLE]);
+				// }else{
+				// 	_actuators.control[actuator_controls_s::INDEX_PITCH]  = constrain(-_pitch_cmd, -1.0f, 1.0f);
+				// 	_actuators.control[actuator_controls_s::INDEX_THROTTLE]  = constrain(_thrust_cmd, 0.0f, 1.0f);
+				// }
+
+
+				// if (counter>=200)
+				// {
+				// 	_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.0f;
+				// 	_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.6f;
+				// }
+				
+
+				// if (_takeoff_state == 1)
+				// {
+				// 	/* code */
+				// 	_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.4f;
+				// 	_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.5f;
+
+				// }
+
+				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.0f;
+
+				static int mycounter = 0;
+				if (_takeoff_state>=1)
 				{
-					/* code */
-					_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.9f;
-					_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.9f;
-					_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.0f;
+
+					if (mycounter%10 == 0)
+						printf("roll = %.3f; yaw= %.3f;\n",  (double)_roll_cmd, (double)_yaw_cmd);
+
+					
 				}
 
+
+
+
+
+
+				mycounter++;
+
+				
 		
 				if (_actuators_0_pub != nullptr) {
 					orb_publish(ORB_ID(actuator_controls_0), _actuators_0_pub, &_actuators);

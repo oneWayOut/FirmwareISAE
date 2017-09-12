@@ -89,7 +89,7 @@ PARAM_DEFINE_FLOAT(FW_HDOT_I,	0.02f);
  * @increment 0.1
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_MAX,	20f);
+PARAM_DEFINE_FLOAT(FW_AIRSPD_MAX,	25.0f);
 
 /**
  * Min speed
@@ -100,7 +100,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_MAX,	20f);
  * @increment 0.1
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_MIN,	10f);
+PARAM_DEFINE_FLOAT(FW_AIRSPD_MIN,	15.0f);
 
 /**
  * Cruise speed
@@ -111,7 +111,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_MIN,	10f);
  * @increment 0.1
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_CRU,	15f);
+PARAM_DEFINE_FLOAT(FW_AIRSPD_CRU,	20.0f);
 
 /**
  * Forward acceleration proportional gain
