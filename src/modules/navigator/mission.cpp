@@ -195,6 +195,9 @@ Mission::on_active()
 			set_mission_items();
 		}
 
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "cai reached waypoint.");
+		printf("cai reached wpt\n");
+
 	} else if (_mission_type != MISSION_TYPE_NONE && _param_altmode.get() == MISSION_ALTMODE_FOH) {
 
 		altitude_sp_foh_update();

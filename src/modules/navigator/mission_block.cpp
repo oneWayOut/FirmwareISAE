@@ -208,6 +208,7 @@ MissionBlock::is_mission_item_reached()
 			if (dist >= 0.0f && dist <= _navigator->get_acceptance_radius()
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
+				
 			}
 
 		} else if (!_navigator->get_vstatus()->is_rotary_wing &&

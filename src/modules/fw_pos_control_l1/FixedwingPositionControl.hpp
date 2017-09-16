@@ -120,6 +120,7 @@ private:
 
 	float _tkoff_yaw{0.0f};
 	float _tkoff_alt{0.0f};
+	math::Vector<2> _tkoff_wp;
 	int _takeoff_state{-1};  //-1=uninitialized takeoff waypoint; 
 	                          //0=slide on runway; 1=reached airspeed; 2=fly;
 
