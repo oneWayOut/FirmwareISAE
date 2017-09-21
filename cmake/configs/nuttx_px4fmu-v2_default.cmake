@@ -113,7 +113,7 @@ set(config_module_list
 	#
 	# Vehicle Control
 	#
-	#modules/fw_att_control
+	modules/fw_att_control
 	modules/fw_pos_control_l1
 	#modules/gnd_att_control
 	#modules/gnd_pos_control
@@ -147,7 +147,7 @@ set(config_module_list
 	lib/geo
 	lib/geo_lookup
 	lib/conversion
-	lib/launchdetection
+	lib/launchdetection  #caitodo delete???
 	lib/led
 	lib/terrain_estimation
 	#lib/runway_takeoff

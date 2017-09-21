@@ -18,27 +18,27 @@ FixedwingPositionControl::FixedwingPositionControl() :
 	_actuators_0_pub(nullptr),
 	_loop_perf(perf_alloc(PC_ELAPSED, "fw l1 control"))
 {
-	_parameter_handles._k_QE  = 	param_find("FW_PR_P");
-	_parameter_handles._k_i_QE  = 	param_find("FW_PR_I");
-	_parameter_handles._k_pitch_E  = 	param_find("FW_P_P");
-	_parameter_handles._k_HE  = 	param_find("FW_H_P");
-	_parameter_handles._k_HdotE  = 	param_find("FW_HDOT_P");
-	_parameter_handles._k_i_HdotE  = 	param_find("FW_HDOT_I");
-	_parameter_handles._k_Vmax  = 	param_find("FW_AIRSPD_MAX");
-	_parameter_handles._k_Vmin  = 	param_find("FW_AIRSPD_MIN");
-	_parameter_handles._k_Vcru  = 	param_find("FW_AIRSPD_CRU");
-	_parameter_handles._k_AxP  = 	param_find("FW_AX_P");
-	_parameter_handles._k_i_AxP  = 	param_find("FW_AX_I");
-	_parameter_handles._k_Vas  = 	param_find("FW_AIRSPD_P");
-	_parameter_handles._k_yaw_R  = 	param_find("FW_Y_P");
-	_parameter_handles._k_YR  = 	param_find("FW_TRACK_P");
-	_parameter_handles._k_RR  = 	param_find("FW_YR_P");
-	_parameter_handles._k_YA  = 	param_find("FW_TRACK2R_P");
-	_parameter_handles._k_i_YA  = 	param_find("FW_TRACK2R_I");
-	_parameter_handles._k_yaw_A  = 	param_find("FW_Y2R_P");
-	_parameter_handles._k_roll_A  = 	param_find("FW_R_P");
-	_parameter_handles._k_PA  = 	param_find("FW_RR_P");
-	_parameter_handles._k_i_PA  = 	param_find("FW_RR_I");
+	_parameter_handles._k_QE  = 	param_find("FW0_PR_P");
+	_parameter_handles._k_i_QE  = 	param_find("FW0_PR_I");
+	_parameter_handles._k_pitch_E  = 	param_find("FW0_P_P");
+	_parameter_handles._k_HE  = 	param_find("FW0_H_P");
+	_parameter_handles._k_HdotE  = 	param_find("FW0_HDOT_P");
+	_parameter_handles._k_i_HdotE  = 	param_find("FW0_HDOT_I");
+	_parameter_handles._k_Vmax  = 	param_find("FW0_AIRSPD_MAX");
+	_parameter_handles._k_Vmin  = 	param_find("FW0_AIRSPD_MIN");
+	_parameter_handles._k_Vcru  = 	param_find("FW0_AIRSPD_CRU");
+	_parameter_handles._k_AxP  = 	param_find("FW0_AX_P");
+	_parameter_handles._k_i_AxP  = 	param_find("FW0_AX_I");
+	_parameter_handles._k_Vas  = 	param_find("FW0_AIRSPD_P");
+	_parameter_handles._k_yaw_R  = 	param_find("FW0_Y_P");
+	_parameter_handles._k_YR  = 	param_find("FW0_TRACK_P");
+	_parameter_handles._k_RR  = 	param_find("FW0_YR_P");
+	_parameter_handles._k_YA  = 	param_find("FW0_TRACK2R_P");
+	_parameter_handles._k_i_YA  = 	param_find("FW0_TRACK2R_I");
+	_parameter_handles._k_yaw_A  = 	param_find("FW0_Y2R_P");
+	_parameter_handles._k_roll_A  = 	param_find("FW0_R_P");
+	_parameter_handles._k_PA  = 	param_find("FW0_RR_P");
+	_parameter_handles._k_i_PA  = 	param_find("FW0_RR_I");
 
 
 
@@ -416,6 +416,10 @@ void FixedwingPositionControl::control_thrust(float v_dmd, float dt)
 	_thrust_cmd = p_term + _thrust_integ;
 }
 
+
+
+
+
 /**
  * @param
  * @param
@@ -425,7 +429,6 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 {
 	static float last_pitch_dmd = 0.0f;
 
-	float pitch_rate_dmd = 0.0f;
 	float pitch_dmd = 0.0f;
 
 	//calculate  pitch_rate_dmd in diffrent modes
@@ -445,13 +448,22 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 		last_pitch_dmd = pitch_dmd;
 	}
 
-	_k_pitch_E = 0.5f;  //caitodo delete!!
 
 	if (_takeoff_state>=1 && g_counter%20 == 0)
 	{
 		printf("hdotdmd= %.3f; pitch dmd = %.3f;  ", double(height_dot_dmd), double(pitch_dmd));
 		//printf("pRateDmd = %.3f; ", (double)(_k_pitch_E * _wrap_pi(pitch_dmd - _pitch)));
 	}
+
+
+	control_pitch_rate(pitch_dmd, dt);
+}
+
+void FixedwingPositionControl::control_pitch_rate(float pitch_dmd, float dt)
+{
+
+	float pitch_rate_dmd = 0.0f;
+
 
 	pitch_rate_dmd = constrain(_k_pitch_E * (pitch_dmd - _pitch), -radians(3.0f), radians(3.0f));
 	pitch_rate_dmd += (G_CONST/_airspd_constrain)*cosf(_pitch)*tanf(_roll)*sinf(_roll);
@@ -463,7 +475,7 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 	// 	printf("p Rate E = %.3f\n", (double)pitch_rate_error);
 	// }
 
-	_k_i_QE = 3.0f;
+	_k_i_QE = 3.0f;  //caitodo delete
 	_pitch_integ += _k_i_QE * dt* constrain(pitch_rate_error, -radians(5.0f), radians(5.0f));
 	_pitch_integ = constrain(_pitch_integ, -1.0f, 1.0f);
 
@@ -503,14 +515,7 @@ void FixedwingPositionControl::control_roll(int method, float dt)
 		roll_dmd = constrain(roll_dmd, -radians(30.0f), radians(30.0f));
 		last_roll_dmd = roll_dmd;
 
-		float roll_rate_dmd = _k_roll_A * (roll_dmd - _roll) - (G_CONST/_airspd_constrain)*tanf(_roll)*sinf(_pitch);
-		roll_rate_dmd  = constrain(roll_rate_dmd, -radians(10.0f), radians(10.0f));
-
-		_roll_integ += _k_i_PA*dt * constrain(_ctrl_state.roll_rate - roll_rate_dmd, -radians(10.0f), radians(10.0f));
-		
-		_roll_integ = constrain(_roll_integ, -1.0f, 1.0f);
-
-		_roll_cmd = _scaler *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
+		control_roll_rate(roll_dmd, dt);
 
 
 		// if (g_counter%20 == 0)
@@ -520,6 +525,19 @@ void FixedwingPositionControl::control_roll(int method, float dt)
 		// }
 	}
 	g_counter++;
+}
+
+
+void FixedwingPositionControl::control_roll_rate(float roll_dmd, float dt)
+{
+	float roll_rate_dmd = _k_roll_A * (roll_dmd - _roll) - (G_CONST/_airspd_constrain)*tanf(_roll)*sinf(_pitch);
+	roll_rate_dmd  = constrain(roll_rate_dmd, -radians(10.0f), radians(10.0f));
+
+	_roll_integ += _k_i_PA*dt * constrain(_ctrl_state.roll_rate - roll_rate_dmd, -radians(10.0f), radians(10.0f));
+	
+	_roll_integ = constrain(_roll_integ, -1.0f, 1.0f);
+
+	_roll_cmd = _scaler *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
 }
 
 /**
@@ -599,6 +617,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 	if (_control_mode.flag_control_auto_enabled && pos_sp_curr.valid) {
 		/* AUTONOMOUS FLIGHT */
+		//cainote: including LOITER, RCRECOVER.....
 
 		_control_mode_current = FW_POSCTRL_MODE_AUTO;
 
@@ -618,7 +637,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		_att_sp.yaw_reset_integral = false;
 
 		//calculate tranck Error speed, and track angle
-		calcTrackInfo(/*nav_speed_2d*/);
+		calcTrackInfo();
 
 
 		static int statusCount = -1;
@@ -834,7 +853,37 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		default:
 			break;
 		}
-	} 
+	} else if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_STAB) {
+		/* in stablize  mode */
+		manual_control_setpoint_poll();
+
+		//caitodo check sign
+		control_roll_rate(_manual.y*radians(20.0f), dt);
+
+		control_pitch_rate(-_manual.x*radians(15.0f), dt);
+		_yaw_cmd   = _scaler * _k_RR* _ctrl_state.yaw_rate + _manual.r;
+
+		_thrust_cmd = _manual.z;
+
+		//reset part of the integral
+	} else if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_MANUAL) {
+		/* manual/direct control */
+		manual_control_setpoint_poll();
+
+		_roll_cmd = _manual.y ;
+		_pitch_cmd = -_manual.x;  //caitodo check sign here
+		_yaw_cmd = _manual.r;
+		_thrust_cmd = _manual.z;
+		//caitodo check wheel control channel
+		//
+		//todo reset integer
+	} else 	{
+		//caitodo donot publish att sp.
+	}
+
+
+
+#if 0   //caitodo check this
 	else {
 		_control_mode_current = FW_POSCTRL_MODE_OTHER;
 
@@ -849,6 +898,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 			reset_landing_state();
 		}
 	}
+#endif
 
 	
 	if (_control_mode.flag_control_position_enabled) {
@@ -947,7 +997,6 @@ FixedwingPositionControl::task_main()
 			control_state_update();
 
 			global_pos_poll();
-			manual_control_setpoint_poll();
 			position_setpoint_triplet_poll();
 
 			math::Vector<2> curr_pos((float)_global_pos.lat, (float)_global_pos.lon);

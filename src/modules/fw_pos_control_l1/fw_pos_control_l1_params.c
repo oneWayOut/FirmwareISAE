@@ -23,7 +23,7 @@
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_PR_P,	2.0f);
+PARAM_DEFINE_FLOAT(FW0_PR_P,	2.0f);
 
 /**
  * Pitch rate integral gain
@@ -34,7 +34,7 @@ PARAM_DEFINE_FLOAT(FW_PR_P,	2.0f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_PR_I,	3.0f);
+PARAM_DEFINE_FLOAT(FW0_PR_I,	3.0f);
 
 /**
  * Pitch proportional gain
@@ -45,7 +45,7 @@ PARAM_DEFINE_FLOAT(FW_PR_I,	3.0f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_P_P,	0.5f);
+PARAM_DEFINE_FLOAT(FW0_P_P,	0.5f);
 
 /**
  * Height proportional gain   
@@ -56,7 +56,7 @@ PARAM_DEFINE_FLOAT(FW_P_P,	0.5f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_H_P,	0.1f);
+PARAM_DEFINE_FLOAT(FW0_H_P,	0.1f);
 
 /**
  * Vertical speed proportional gain
@@ -67,7 +67,7 @@ PARAM_DEFINE_FLOAT(FW_H_P,	0.1f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_HDOT_P,	0.03f);
+PARAM_DEFINE_FLOAT(FW0_HDOT_P,	0.03f);
 
 /**
  * Vertical speed integral gain
@@ -78,7 +78,7 @@ PARAM_DEFINE_FLOAT(FW_HDOT_P,	0.03f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_HDOT_I,	0.02f);
+PARAM_DEFINE_FLOAT(FW0_HDOT_I,	0.02f);
 
 /**
  * Max speed
@@ -89,7 +89,7 @@ PARAM_DEFINE_FLOAT(FW_HDOT_I,	0.02f);
  * @increment 0.1
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_MAX,	25.0f);
+PARAM_DEFINE_FLOAT(FW0_AIRSPD_MAX,	25.0f);
 
 /**
  * Min speed
@@ -100,7 +100,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_MAX,	25.0f);
  * @increment 0.1
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_MIN,	15.0f);
+PARAM_DEFINE_FLOAT(FW0_AIRSPD_MIN,	15.0f);
 
 /**
  * Cruise speed
@@ -111,7 +111,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_MIN,	15.0f);
  * @increment 0.1
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_CRU,	20.0f);
+PARAM_DEFINE_FLOAT(FW0_AIRSPD_CRU,	20.0f);
 
 /**
  * Forward acceleration proportional gain
@@ -122,7 +122,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_CRU,	20.0f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AX_P,	0.05f);
+PARAM_DEFINE_FLOAT(FW0_AX_P,	0.05f);
 
 /**
  * Forward acceleration integral gain
@@ -133,7 +133,7 @@ PARAM_DEFINE_FLOAT(FW_AX_P,	0.05f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AX_I,	0.2f);
+PARAM_DEFINE_FLOAT(FW0_AX_I,	0.2f);
 
 /**
  * Airspeed proportional gain
@@ -144,7 +144,7 @@ PARAM_DEFINE_FLOAT(FW_AX_I,	0.2f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_P,	0.5f);
+PARAM_DEFINE_FLOAT(FW0_AIRSPD_P,	0.5f);
 
 /**
  * Yaw proportional gain
@@ -155,7 +155,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_P,	0.5f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_Y_P,	2.5f);
+PARAM_DEFINE_FLOAT(FW0_Y_P,	2.5f);
 
 /**
  * Track error proportional gain
@@ -166,7 +166,7 @@ PARAM_DEFINE_FLOAT(FW_Y_P,	2.5f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_TRACK_P,	0.01f);
+PARAM_DEFINE_FLOAT(FW0_TRACK_P,	0.01f);
 
 /**
  * Yaw rate proportional gain
@@ -177,7 +177,7 @@ PARAM_DEFINE_FLOAT(FW_TRACK_P,	0.01f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_YR_P,	1.00f);
+PARAM_DEFINE_FLOAT(FW0_YR_P,	1.00f);
 
 /**
  * Track error to roll proportional gain
@@ -188,7 +188,7 @@ PARAM_DEFINE_FLOAT(FW_YR_P,	1.00f);
  * @increment 0.001
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_TRACK2R_P,	0.005f);
+PARAM_DEFINE_FLOAT(FW0_TRACK2R_P,	0.005f);
 
 /**
  * Track error to roll integral gain
@@ -199,7 +199,7 @@ PARAM_DEFINE_FLOAT(FW_TRACK2R_P,	0.005f);
  * @increment 0.001
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_TRACK2R_I,	0.002f);
+PARAM_DEFINE_FLOAT(FW0_TRACK2R_I,	0.002f);
 
 /**
  * Yaw to roll proportional gain
@@ -210,7 +210,7 @@ PARAM_DEFINE_FLOAT(FW_TRACK2R_I,	0.002f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_Y2R_P,	1.0f);
+PARAM_DEFINE_FLOAT(FW0_Y2R_P,	1.0f);
 
 /**
  * Roll proportional gain
@@ -221,7 +221,7 @@ PARAM_DEFINE_FLOAT(FW_Y2R_P,	1.0f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_R_P,	0.5f);
+PARAM_DEFINE_FLOAT(FW0_R_P,	0.5f);
 
 /**
  * Roll rate proportional gain
@@ -232,7 +232,7 @@ PARAM_DEFINE_FLOAT(FW_R_P,	0.5f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_RR_P,	1.0f);
+PARAM_DEFINE_FLOAT(FW0_RR_P,	1.0f);
 
 /**
  * Roll rate integral gain
@@ -243,7 +243,7 @@ PARAM_DEFINE_FLOAT(FW_RR_P,	1.0f);
  * @increment 0.01
  * @group FW PLANE Control
  */
-PARAM_DEFINE_FLOAT(FW_RR_I,	1.0f);
+PARAM_DEFINE_FLOAT(FW0_RR_I,	1.0f);
 
 
 

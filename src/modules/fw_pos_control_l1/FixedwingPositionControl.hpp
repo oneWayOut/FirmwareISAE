@@ -318,6 +318,8 @@ private:
 	void    control_pitch(int method, float height_dot_dmd, float dt);
 	void    control_roll(int method, float dt);
 	void    control_yaw(int method, float yaw_dmd, float dt);
+	void    control_pitch_rate(float pitch_dmd, float dt);
+	void    control_roll_rate(float roll_dmd, float dt);
 
 	math::Vector<2> get_local_planar_vector(const math::Vector<2> &origin, const math::Vector<2> &target) const;
 

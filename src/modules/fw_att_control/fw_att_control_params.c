@@ -94,7 +94,7 @@ PARAM_DEFINE_FLOAT(FW_P_TC, 0.4f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-//PARAM_DEFINE_FLOAT(FW_PR_P, 0.08f);
+PARAM_DEFINE_FLOAT(FW_PR_P, 0.08f);
 
 /**
  * Pitch rate integrator gain.
@@ -109,7 +109,7 @@ PARAM_DEFINE_FLOAT(FW_P_TC, 0.4f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-//PARAM_DEFINE_FLOAT(FW_PR_I, 0.02f);
+PARAM_DEFINE_FLOAT(FW_PR_I, 0.02f);
 
 /**
  * Maximum positive / up pitch rate.
@@ -168,7 +168,7 @@ PARAM_DEFINE_FLOAT(FW_PR_IMAX, 0.4f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-//PARAM_DEFINE_FLOAT(FW_RR_P, 0.05f);
+PARAM_DEFINE_FLOAT(FW_RR_P, 0.05f);
 
 /**
  * Roll rate integrator Gain
@@ -183,7 +183,7 @@ PARAM_DEFINE_FLOAT(FW_PR_IMAX, 0.4f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-//PARAM_DEFINE_FLOAT(FW_RR_I, 0.01f);
+PARAM_DEFINE_FLOAT(FW_RR_I, 0.01f);
 
 /**
  * Roll Integrator Anti-Windup
@@ -226,7 +226,7 @@ PARAM_DEFINE_FLOAT(FW_R_RMAX, 70.0f);
  * @increment 0.005
  * @group FW Attitude Control
  */
-//PARAM_DEFINE_FLOAT(FW_YR_P, 0.05f);
+PARAM_DEFINE_FLOAT(FW_YR_P, 0.05f);
 
 /**
  * Yaw rate integrator gain
@@ -288,74 +288,6 @@ PARAM_DEFINE_FLOAT(FW_Y_RMAX, 0.0f);
 PARAM_DEFINE_FLOAT(FW_RLL_TO_YAW_FF, 0.0f);
 
 /**
- * Enable wheel steering controller
- *
- * @boolean
- * @group FW Attitude Control
- */
-PARAM_DEFINE_INT32(FW_W_EN, 0);
-
-
-/**
- * Wheel steering rate proportional gain
- *
- * This defines how much the wheel steering input will be commanded depending on the
- * current body angular rate error.
- *
- * @unit %/rad/s
- * @min 0.005
- * @max 1.0
- * @decimal 3
- * @increment 0.005
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_WR_P, 0.5f);
-
-/**
- * Wheel steering rate integrator gain
- *
- * This gain defines how much control response will result out of a steady
- * state error. It trims any constant error.
- *
- * @unit %/rad
- * @min 0.005
- * @max 0.5
- * @decimal 3
- * @increment 0.005
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_WR_I, 0.1f);
-
-/**
- * Wheel steering rate integrator limit
- *
- * The portion of the integrator part in the control surface deflection is
- * limited to this value
- *
- * @min 0.0
- * @max 1.0
- * @decimal 2
- * @increment 0.05
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_WR_IMAX, 1.0f);
-
-/**
- * Maximum wheel steering rate
- *
- * This limits the maximum wheel steering rate the controller will output (in degrees per
- * second). Setting a value of zero disables the limit.
- *
- * @unit deg/s
- * @min 0.0
- * @max 90.0
- * @decimal 1
- * @increment 0.5
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_W_RMAX, 0.0f);
-
-/**
  * Roll rate feed forward
  *
  * Direct feed forward from rate setpoint to control surface output. Use this
@@ -398,20 +330,6 @@ PARAM_DEFINE_FLOAT(FW_PR_FF, 0.5f);
  * @group FW Attitude Control
  */
 PARAM_DEFINE_FLOAT(FW_YR_FF, 0.3f);
-
-/**
- * Wheel steering rate feed forward
- *
- * Direct feed forward from rate setpoint to control surface output
- *
- * @unit %/rad/s
- * @min 0.0
- * @max 10.0
- * @decimal 2
- * @increment 0.05
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_WR_FF, 0.2f);
 
 /**
  * Minimal speed for yaw coordination
@@ -504,30 +422,6 @@ PARAM_DEFINE_FLOAT(FW_MAN_R_MAX, 45.0f);
 PARAM_DEFINE_FLOAT(FW_MAN_P_MAX, 45.0f);
 
 /**
- * Scale factor for flaps
- *
- * @unit norm
- * @min 0.0
- * @max 1.0
- * @decimal 2
- * @increment 0.01
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_FLAPS_SCL, 1.0f);
-
-/**
- * Scale factor for flaperons
- *
- * @unit norm
- * @min 0.0
- * @max 1.0
- * @decimal 2
- * @increment 0.01
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_FLAPERON_SCL, 0.0f);
-
-/**
  * Airspeed mode
  *
  * The param value sets the method used to publish the control state airspeed.
@@ -599,56 +493,3 @@ PARAM_DEFINE_FLOAT(FW_MAN_Y_SC, 1.0f);
  * @group FW Attitude Control
  */
 PARAM_DEFINE_INT32(FW_BAT_SCALE_EN, 0);
-
-/**
- * Acro body x max rate.
- *
- * This is the rate the controller is trying to achieve if the user applies full roll
- * stick input in acro mode.
- *
- * @min 45
- * @max 720
- * @unit degrees
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_ACRO_X_MAX, 90);
-
-/**
- * Acro body y max rate.
- *
- * This is the body y rate the controller is trying to achieve if the user applies full pitch
- * stick input in acro mode.
- *
- * @min 45
- * @max 720
- * @unit degrees
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_ACRO_Y_MAX, 90);
-
-/**
- * Acro body z max rate.
- *
- * This is the body z rate the controller is trying to achieve if the user applies full yaw
- * stick input in acro mode.
- *
- * @min 10
- * @max 180
- * @unit degrees
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_ACRO_Z_MAX, 45);
-
-/**
- * Threshold for Rattitude mode
- *
- * Manual input needed in order to override attitude control rate setpoints
- * and instead pass manual stick inputs as rate setpoints
- *
- * @min 0.0
- * @max 1.0
- * @decimal 2
- * @increment 0.01
- * @group FW Attitude Control
- */
-PARAM_DEFINE_FLOAT(FW_RATT_TH, 0.8f);
