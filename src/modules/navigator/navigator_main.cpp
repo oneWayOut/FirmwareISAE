@@ -746,7 +746,7 @@ Navigator::get_altitude_acceptance_radius()
 	if (!get_vstatus()->is_rotary_wing) {
 
 		//caiadded
-		return  110.0f;
+		return  500.0f;
 		//return _param_fw_alt_acceptance_radius.get();
 	} else {
 		return _param_mc_alt_acceptance_radius.get();

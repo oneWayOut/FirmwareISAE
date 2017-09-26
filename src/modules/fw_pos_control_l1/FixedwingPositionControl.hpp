@@ -109,6 +109,8 @@ private:
 
 	float _scaler{0.0f};   //   Vcru/V
 	float _airspd_constrain{0.0f};
+	float _x_acc{0.0f};             //filtered x_acc
+	float _airspd_filtered{0.0f};   //filtered airspeed
 
 
 	float _height{0.0f};
@@ -191,7 +193,6 @@ private:
 	position_setpoint_s _hdg_hold_prev_wp {};		///< position where heading hold started */
 	position_setpoint_s _hdg_hold_curr_wp {};		///< position to which heading hold flies */
 
-	hrt_abstime _control_position_last_called{0};		///< last call of control_position  */
 
 
 
@@ -207,10 +208,6 @@ private:
 
 	bool _was_in_air{false};				///< indicated wether the plane was in the air in the previous interation*/
 	hrt_abstime _time_went_in_air{0};			///< time at which the plane went in the air */
-
-
-
-	bool _last_manual{false};				///< true if the last iteration was in manual mode (used to determine when a reset is needed)
 
 	/* throttle and airspeed states */
 	bool _airspeed_valid{false};				///< flag if a valid airspeed estimate exists
@@ -312,6 +309,7 @@ private:
 	int		parameters_update();
 
 	void    reset_integral(void);
+	void    reset_att_integral(void);
 	void    calcTrackInfo();
 	float   softenCmd(float lastCmd, float thisCmd, float dt, float rate);
 	void    control_thrust(float v_dmd, float dt);

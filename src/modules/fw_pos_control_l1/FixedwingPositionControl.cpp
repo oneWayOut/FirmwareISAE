@@ -157,9 +157,12 @@ void FixedwingPositionControl::vehicle_control_mode_poll()
 
 
 
+//reset integral here
+
 void
 FixedwingPositionControl::vehicle_status_poll()
 {
+	static uint8_t lastMode = 0;
 	bool updated;
 
 	orb_check(_vehicle_status_sub, &updated);
@@ -170,6 +173,18 @@ FixedwingPositionControl::vehicle_status_poll()
 		// if (_attitude_setpoint_id == nullptr) {
 		// 	_attitude_setpoint_id = ORB_ID(vehicle_attitude_setpoint);
 		// }
+		// 
+		if (lastMode==vehicle_status_s::NAVIGATION_STATE_MANUAL && _vehicle_status.nav_state != lastMode)
+		{
+			reset_integral();
+		}
+
+		if (lastMode==vehicle_status_s::NAVIGATION_STATE_STAB && _vehicle_status.nav_state != lastMode)
+		{
+			reset_att_integral();
+		}
+
+		lastMode = _vehicle_status.nav_state;
 	}
 }
 
@@ -202,6 +217,8 @@ FixedwingPositionControl::manual_control_setpoint_poll()
 
 void FixedwingPositionControl::global_pos_poll()
 {
+	static float lastHeight = 0.0f;
+	static float lastHeightDot = 0.0f;
 	bool updated;
 	/* Check if manual setpoint has changed */
 	orb_check(_global_pos_sub, &updated);
@@ -211,8 +228,10 @@ void FixedwingPositionControl::global_pos_poll()
 		orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);
 
 		//cai get height and heightDot, todo, maybe we need filter later.....
-		_height = _global_pos.alt;
-		_heightDot = -_global_pos.vel_d;
+		_height = lastHeight*0.95f + _global_pos.alt*0.05f;
+		_heightDot = lastHeightDot*0.95f-_global_pos.vel_d*0.05f;
+		lastHeight = _height;
+		lastHeightDot = _heightDot;
 	}
 }
 
@@ -224,6 +243,9 @@ void FixedwingPositionControl::global_pos_poll()
 void
 FixedwingPositionControl::control_state_update()
 {
+	static float lastAirSpd  = 0.0f;
+	static float last_x_acc  = 0.0f;
+
 
 	orb_copy(ORB_ID(control_state), _ctrl_state_sub, &_ctrl_state);
 
@@ -249,6 +271,16 @@ FixedwingPositionControl::control_state_update()
 		_scaler = 1.0f;
 		_airspd_constrain = _k_Vcru;
 	}
+
+
+//filter x_acc and airspeed
+	_airspd_filtered = 0.95f*lastAirSpd + 0.05f*_ctrl_state.airspeed;
+	_x_acc           = 0.95f*last_x_acc + 0.05f*_ctrl_state.x_acc;
+
+	lastAirSpd  = _airspd_filtered;
+	last_x_acc  = _x_acc;
+
+
 
 	/* set rotation matrix and euler angles */
 	math::Quaternion q_att(_ctrl_state.q);
@@ -332,6 +364,15 @@ void FixedwingPositionControl::reset_integral(void)
 	_track_integ = 0.0f;  //for roll control
 }
 
+void FixedwingPositionControl::reset_att_integral(void)
+{
+	_height_integ = 0.0f;  //for pitch control
+	_track_integ = 0.0f;  //for roll control
+}
+
+
+
+
 //this function is from ecl_l1_pos_controller.cpp
 math::Vector<2> FixedwingPositionControl::get_local_planar_vector(const math::Vector<2> &origin, const math::Vector<2> &target) const
 {
@@ -400,10 +441,10 @@ float FixedwingPositionControl::softenCmd(float lastCmd, float thisCmd, float dt
 void FixedwingPositionControl::control_thrust(float v_dmd, float dt)
 {
 	//demanded acceleration X;
-	float _accX_dmd   =  _k_Vas*(v_dmd - _ctrl_state.airspeed);
+	float _accX_dmd   =  _k_Vas*(v_dmd - _airspd_filtered);
 	_accX_dmd = constrain(_accX_dmd, -2.0f, 2.0f);
 
-	float temp = _accX_dmd - _ctrl_state.x_acc + G_CONST*sinf(_pitch);
+	float temp = _accX_dmd - _x_acc + G_CONST*sinf(_pitch);
 
 
 
@@ -475,7 +516,7 @@ void FixedwingPositionControl::control_pitch_rate(float pitch_dmd, float dt)
 	// 	printf("p Rate E = %.3f\n", (double)pitch_rate_error);
 	// }
 
-	_k_i_QE = 3.0f;  //caitodo delete
+	//_k_i_QE = 3.0f;  //caitodo delete
 	_pitch_integ += _k_i_QE * dt* constrain(pitch_rate_error, -radians(5.0f), radians(5.0f));
 	_pitch_integ = constrain(_pitch_integ, -1.0f, 1.0f);
 
@@ -552,8 +593,8 @@ void FixedwingPositionControl::control_yaw(int method, float yaw_dmd, float dt)
 		float yaw_term = constrain(_k_yaw_R * _wrap_pi(_yaw - yaw_dmd), radians(-5.0f), radians(5.0f));
 		float track_term = constrain(_k_YR * _trackError, radians(-3.0f), radians(3.0f));
 
-		_yaw_cmd     = (_k_Vmin/(_ctrl_state.airspeed+_k_Vmin)) * (yaw_term+track_term + _k_RR * _ctrl_state.yaw_rate);
-		_wheel_cmd   = _wheel_cmd;
+		_yaw_cmd     = (_k_Vmin/(_airspd_filtered+_k_Vmin)) * (yaw_term+track_term + _k_RR * _ctrl_state.yaw_rate);
+		_wheel_cmd   = _yaw_cmd;
 	} else {
 		float yaw_rate_dmd = G_CONST/_airspd_constrain * tanf(_roll)*cosf(_roll)*cosf(_pitch);
 
@@ -568,13 +609,21 @@ bool
 FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, const math::Vector<2> &ground_speed,
 		const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {
-	float dt = 0.01f;
-
-	if (_control_position_last_called > 0) {
-		dt = hrt_elapsed_time(&_control_position_last_called) * 1e-6f;
+	
+	if (!_control_mode.flag_armed)
+	{
+		reset_integral();
+		return false;
 	}
 
-	_control_position_last_called = hrt_absolute_time();
+	static hrt_abstime last_called = 0;
+
+	float dt = 0.01f;
+	if (last_called > 0) {
+		dt = hrt_elapsed_time(&last_called) * 1e-6f;
+	}
+	last_called = hrt_absolute_time();
+
 
 	bool setpoint = true;
 
@@ -584,7 +633,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 	// l1 navigation logic breaks down when wind speed exceeds max airspeed
 	// compute 2D groundspeed from airspeed-heading projection
-	math::Vector<2> air_speed_2d{_ctrl_state.airspeed * cosf(_yaw), _ctrl_state.airspeed * sinf(_yaw)};
+	math::Vector<2> air_speed_2d{_airspd_filtered * cosf(_yaw), _airspd_filtered * sinf(_yaw)};
 	math::Vector<2> nav_speed_2d{0.0f, 0.0f};
 
 	// angle between air_speed_2d and ground_speed
@@ -684,12 +733,10 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 				control_roll(1, dt);
 				control_yaw(1, _tkoff_yaw, dt);
 
-				if (_ctrl_state.airspeed > _k_Vmin) {
+				if (_airspd_filtered > _k_Vmin) {
 					statusCount++;
 					if (statusCount>=6){
 						_takeoff_state = 1;
-						//reset thrust integerator
-						_thrust_integ = 0.5f;
 						mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff airspeed reached");
 						printf("airspeed reached");
 
@@ -795,7 +842,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 				height_dot_dmd = constrain(height_dot_dmd, -3.0f, 3.0f);
 				control_pitch(2, height_dot_dmd, dt);
 				control_roll(2, dt);
-				control_thrust(15.0f, dt);
+				control_thrust(_k_Vmin, dt);
 				control_yaw(2, _trackAngle, dt);
 
 				if (_global_pos.alt < _tkoff_alt +2.0f) {
@@ -877,14 +924,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		//caitodo check wheel control channel
 		//
 		//todo reset integer
-	} else 	{
-		//caitodo donot publish att sp.
-	}
-
-
-
-#if 0   //caitodo check this
-	else {
+	} else {
 		_control_mode_current = FW_POSCTRL_MODE_OTHER;
 
 		/* do not publish the setpoint */
@@ -893,23 +933,8 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		// reset hold altitude
 		_hold_alt = _global_pos.alt;
 
-		/* reset landing and takeoff state */
-		if (!_last_manual) {
-			reset_landing_state();
-		}
 	}
-#endif
 
-	
-	if (_control_mode.flag_control_position_enabled) {
-		if (_last_manual) {
-			reset_integral();
-		}
-		_last_manual = false;
-
-	} else {
-		_last_manual = true;
-	}
 
 	return setpoint;
 }
@@ -1021,43 +1046,6 @@ FixedwingPositionControl::task_main()
 
 
 
-
-				// static int counter = 0;
-				// if (_takeoff_state == 1)
-				// {
-				// 	if (counter <100)
-				// 	{
-				// 		counter++;
-				// 		_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.2f;
-				// 		_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.8f;
-				// 	}else if (counter<200)
-				// 	{
-				// 		counter++;
-				// 		_actuators.control[actuator_controls_s::INDEX_PITCH] -= 0.0015f;
-				// 		_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.8f;
-				// 	}
-				// 	//printf("thrust =  %.4f;\n", (double)_actuators.control[actuator_controls_s::INDEX_THROTTLE]);
-				// }else{
-				// 	_actuators.control[actuator_controls_s::INDEX_PITCH]  = constrain(-_pitch_cmd, -1.0f, 1.0f);
-				// 	_actuators.control[actuator_controls_s::INDEX_THROTTLE]  = constrain(_thrust_cmd, 0.0f, 1.0f);
-				// }
-
-
-				// if (counter>=200)
-				// {
-				// 	_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.0f;
-				// 	_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.6f;
-				// }
-				
-
-				// if (_takeoff_state == 1)
-				// {
-				// 	/* code */
-				// 	_actuators.control[actuator_controls_s::INDEX_PITCH] = 0.4f;
-				// 	_actuators.control[actuator_controls_s::INDEX_THROTTLE] = 0.5f;
-
-				// }
-
 				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.0f;
 
 				static int mycounter = 0;
@@ -1124,28 +1112,6 @@ FixedwingPositionControl::task_main()
 	_control_task = -1;
 }
 
-
-void
-FixedwingPositionControl::reset_landing_state()
-{
-	_time_started_landing = 0;
-
-	// reset terrain estimation relevant values
-	_time_last_t_alt = 0;
-
-	// _land_noreturn_horizontal = false;
-	// _land_noreturn_vertical = false;
-	// _land_stayonground = false;
-	// _land_motor_lim = false;
-	// _land_onslope = false;
-
-	// reset abort land, unless loitering after an abort
-	if (_fw_pos_ctrl_status.abort_landing
-	    && _pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_LOITER) {
-
-		_fw_pos_ctrl_status.abort_landing = false;
-	}
-}
 
 
 
