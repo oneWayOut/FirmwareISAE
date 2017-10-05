@@ -865,10 +865,14 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 						{
 							mavlink_log_info(&_mavlink_log_pub, "#landed, stop motors!!");
 						}
+						if (_thrust_cmd>=0.0f)   //stop motors softly.
+						{
+							_thrust_cmd -= 0.1f*dt;
+						}
+
 						_roll_cmd = 0.0f;
 						_pitch_cmd = 0.0f;
 						_yaw_cmd = 0.0f;
-						_thrust_cmd = 0.0f;
 						_wheel_cmd = 0.0f;
 						_land_state = -1;
 

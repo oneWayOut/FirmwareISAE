@@ -103,12 +103,12 @@ then
 
 		if [[ -n "$HEADLESS" ]]; then
 			echo "not running gazebo gui"
-		else
-			# gzserver needs to be running to avoid a race. Since the launch
-			# is putting it into the background we need to avoid it by backing off
-			sleep 3
-			gzclient --verbose &
-			GUI_PID=`echo $!`
+		# else
+		# 	# gzserver needs to be running to avoid a race. Since the launch
+		# 	# is putting it into the background we need to avoid it by backing off
+		# 	sleep 3
+		# 	gzclient --verbose &
+		# 	GUI_PID=`echo $!`
 		fi
 	else
 		echo "You need to have gazebo simulator installed!"
