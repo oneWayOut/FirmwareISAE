@@ -256,9 +256,14 @@ FixedwingPositionControl::control_state_update()
 	} else {
 		/* no valid airspeed for one second */
 		if ((hrt_absolute_time() - _airspeed_last_received) > 1e6) {
+			
+			//printf("airspeed invalid\n");
+			if (_airspeed_valid)
+			{
+				mavlink_log_info(&_mavlink_log_pub, "#airpeed invalid!");
+			}
+
 			_airspeed_valid = false;
-			printf("airspeed invalid\n");
-			mavlink_log_info(&_mavlink_log_pub, "#airpeed invalid!");
 		}
 	}
 
@@ -492,8 +497,7 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 
 	if (_takeoff_state>=1 && g_counter%20 == 0)
 	{
-		printf("hdotdmd= %.3f; pitch dmd = %.3f;  ", double(height_dot_dmd), double(pitch_dmd));
-		//printf("pRateDmd = %.3f; ", (double)(_k_pitch_E * _wrap_pi(pitch_dmd - _pitch)));
+		//printf("hdotdmd= %.3f; pitch dmd = %.3f;  ", double(height_dot_dmd), double(pitch_dmd));
 	}
 
 
@@ -717,7 +721,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 					_tkoff_yaw = get_bearing_to_next_waypoint(_global_pos.lat, _global_pos.lon, _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
 					mavlink_log_info(&_mavlink_log_pub, "#cdcTakeoff started");
 
-					printf("tk alt = %.3f, yaw = %.3f;\n", (double)_tkoff_alt,  (double)_tkoff_yaw);
+					//printf("tk alt = %.3f, yaw = %.3f;\n", (double)_tkoff_alt,  (double)_tkoff_yaw);
 				}
 		
 				_pitch_cmd = 0.0f;
@@ -800,7 +804,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		case position_setpoint_s::SETPOINT_TYPE_LAND:
 			if (g_counter%20==0)
 			{
-				printf("state, dh, dL = %d, %.3f, %.3f\n",_land_state, double(_dH), double(_dL));
+				//printf("state, dh, dL = %d, %.3f, %.3f\n",_land_state, double(_dH), double(_dL));
 			}
 			switch(_land_state)
 			{
@@ -1053,14 +1057,14 @@ FixedwingPositionControl::task_main()
 				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.0f;
 
 				static int mycounter = 0;
-				if (_takeoff_state>=1)
-				{
-
-					if (mycounter%20 == 0)
-						printf("roll = %.3f; pitch = %.3f, yaw= %.3f;\n",  (double)_roll_cmd, (double)_pitch_cmd, (double)_yaw_cmd);
+				// if (_takeoff_state>=1)
+				// {
+				// 	;
+				// 	//if (mycounter%20 == 0)
+				// 		//printf("roll = %.3f; pitch = %.3f, yaw= %.3f;\n",  (double)_roll_cmd, (double)_pitch_cmd, (double)_yaw_cmd);
 
 					
-				}
+				// }
 
 
 

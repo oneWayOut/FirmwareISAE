@@ -26,7 +26,7 @@ M: 1
 O:       10000   10000      0  -10000  10000
 S: 0 0   10000   10000      0  -10000  10000
 
-CH2: Elevator mixer
+CH2: Left VTail mixer (Elevator)
 ------------
 Two scalers total (output, roll).
 
@@ -35,9 +35,10 @@ depending on the actual configuration it may be necessary to reverse the scaling
 factors (to reverse the servo movement) and adjust the offset, scaling and
 endpoints to suit.
 
-M: 1
+M: 2
 O:       10000   10000      0  -10000  10000
 S: 0 1  -10000  -10000      0  -10000  10000
+S: 0 2  -10000  -10000      0  -10000  10000
 
 CH3: Motor speed mixer
 -----------------
@@ -50,7 +51,7 @@ M: 1
 O:       10000  10000       0  -10000  10000
 S: 0 3       0  20000  -10000  -10000  10000
 
-CH4: Rudder mixer
+CH4: right VTail mixer (Rudder)
 ------------
 Two scalers total (output, yaw).
 
@@ -59,23 +60,15 @@ depending on the actual configuration it may be necessary to reverse the scaling
 factors (to reverse the servo movement) and adjust the offset, scaling and
 endpoints to suit.
 
-M: 1
+M: 2
 O:       10000  10000       0  -10000  10000
-S: 0 2   10000  10000       0  -10000  10000
+S: 0 1  -10000  -10000      0  -10000  10000
+S: 0 2   10000   10000      0  -10000  10000
 
-CH5: Flaps mixer
-------------
-Flaps are controlled automatically in position control and auto
-but can also be controlled manually
-
-M: 1
-O:        5000  10000       0  -10000  10000
-S: 0 4   10000  10000       0  -10000  10000
-
-CH6: Landing gear mixer
+CH5: Landing gear mixer
 ------------
 By default pass-through of gear switch
 
 M: 1
 O:        10000 10000       0  -10000  10000
-S: 3 5    10000 10000       0  -10000  10000
+S: 0 4   10000  10000       0  -10000  10000
