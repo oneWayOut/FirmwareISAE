@@ -484,7 +484,7 @@ void FixedwingPositionControl::control_pitch(int method, float height_dot_dmd, f
 	} else 	{  // mission
 
 		_height_integ += constrain(height_dot_dmd - _heightDot, -0.5f, 0.5f) * dt * _k_i_HdotE;
-		_height_integ = constrain(_height_integ, radians(-15.0f), radians(15.0f));
+		_height_integ = constrain(_height_integ, radians(-15.0f), radians(25.0f));
 
 		pitch_dmd = _height_integ + _k_HdotE * (height_dot_dmd - _heightDot);
 		//pitch_dmd = softenCmd(last_pitch_dmd, pitch_dmd, dt, radians(2.0f));
@@ -510,7 +510,11 @@ void FixedwingPositionControl::control_pitch_rate(float pitch_dmd, float dt)
 	float pitch_rate_dmd = 0.0f;
 
 
-	pitch_rate_dmd = constrain(_k_pitch_E * (pitch_dmd - _pitch), -radians(3.0f), radians(3.0f));
+
+
+
+	pitch_rate_dmd = _k_pitch_E * (pitch_dmd - _pitch);
+
 	pitch_rate_dmd += (G_CONST/_airspd_constrain)*cosf(_pitch)*tanf(_roll)*sinf(_roll);
 
 	float pitch_rate_error = _ctrl_state.pitch_rate - pitch_rate_dmd;
@@ -576,13 +580,14 @@ void FixedwingPositionControl::control_roll(int method, float dt)
 void FixedwingPositionControl::control_roll_rate(float roll_dmd, float dt)
 {
 	float roll_rate_dmd = _k_roll_A * (roll_dmd - _roll) - (G_CONST/_airspd_constrain)*tanf(_roll)*sinf(_pitch);
-	roll_rate_dmd  = constrain(roll_rate_dmd, -radians(10.0f), radians(10.0f));
+	roll_rate_dmd  = constrain(roll_rate_dmd, -radians(60.0f), radians(60.0f));
 
 	_roll_integ += _k_i_PA*dt * constrain(_ctrl_state.roll_rate - roll_rate_dmd, -radians(10.0f), radians(10.0f));
 	
 	_roll_integ = constrain(_roll_integ, -1.0f, 1.0f);
 
-	_roll_cmd = _scaler *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
+	//_roll_cmd = _scaler *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);  caitodo
+	_roll_cmd = 1.0f *( _k_PA *(_ctrl_state.roll_rate - roll_rate_dmd) + _roll_integ);
 }
 
 /**
@@ -913,11 +918,11 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		manual_control_setpoint_poll();
 
 		//caitodo check sign
-		control_roll_rate(_manual.y*radians(20.0f), dt);
+		control_roll_rate(_manual.y*radians(60.0f), dt);
 
-		control_pitch_rate(-_manual.x*radians(15.0f), dt);
-		_yaw_cmd   = _scaler * _k_RR* _ctrl_state.yaw_rate + _manual.r;
-
+		control_pitch_rate(-_manual.x*radians(40.0f), dt);
+		_yaw_cmd   = -_scaler * _k_RR* _ctrl_state.yaw_rate + _manual.r;  //caitodo check sign in auto mission mode
+		_wheel_cmd = _yaw_cmd;
 		_thrust_cmd = _manual.z;
 
 		//reset part of the integral
@@ -925,10 +930,11 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		/* manual/direct control */
 		manual_control_setpoint_poll();
 
-		_roll_cmd = _manual.y ;
-		_pitch_cmd = -_manual.x;  //caitodo check sign here
+		_roll_cmd = -_manual.y ;
+		_pitch_cmd = _manual.x;  //caitodo check sign here
 		_yaw_cmd = _manual.r;
 		_thrust_cmd = _manual.z;
+		_wheel_cmd = _yaw_cmd;
 		//caitodo check wheel control channel
 		//
 		//todo reset integer
@@ -1043,7 +1049,7 @@ FixedwingPositionControl::task_main()
 				//_att_sp.timestamp = hrt_absolute_time();
 
 
-				_actuators.control[actuator_controls_s::INDEX_ROLL]  = constrain(-_roll_cmd, -1.0f, 1.0f);
+				_actuators.control[actuator_controls_s::INDEX_ROLL]  = constrain(_roll_cmd, -1.0f, 1.0f);
 				_actuators.control[actuator_controls_s::INDEX_PITCH]  = constrain(-_pitch_cmd, -1.0f, 1.0f);
 				_actuators.control[actuator_controls_s::INDEX_YAW]  = constrain(_yaw_cmd, -1.0f, 1.0f);
 				_actuators.control[actuator_controls_s::INDEX_THROTTLE]  = constrain(_thrust_cmd, 0.0f, 1.0f);

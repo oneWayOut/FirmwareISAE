@@ -870,6 +870,26 @@ then
 		sh /etc/init.d/rc.fw_apps
 	fi
 
+	## CAI set PWM parameters for VisionAir
+	# set rate
+
+	pwm rate -c 5678 -r 50
+
+	pwm min -c 5 -p 1000
+	pwm max -c 5 -p 2000
+	pwm min -c 6 -p 1000
+	pwm max -c 6 -p 2000
+	pwm min -c 7 -p 1000
+	pwm max -c 7 -p 2000
+	pwm min -c 8 -p 1000
+	pwm max -c 8 -p 2000
+
+	pwm disarmed -c 5 -p 1500
+	pwm disarmed -c 6 -p 1500
+	pwm disarmed -c 7 -p 1500
+	pwm disarmed -c 8 -p 1500
+
+
 	#
 	# Multicopters setup
 	#
