@@ -60,6 +60,13 @@
 #include <v1.0/mavlink_types.h>
 #include <v1.0/common/mavlink.h>
 #include <geo/geo.h>
+
+
+#define ENABLE_JOYSTICK
+
+
+
+
 namespace simulator
 {
 
@@ -369,5 +376,12 @@ private:
 	void update_gps(mavlink_hil_gps_t *gps_sim);
 	static void *sending_trampoline(void *);
 	void send();
+
+#ifdef ENABLE_JOYSTICK
+	static void *read_joystick_trampoline(void *);
+	void read_joystick();
+#endif
+
+
 #endif
 };

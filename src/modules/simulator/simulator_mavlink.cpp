@@ -70,6 +70,33 @@ static const float mg2ms2 = CONSTANTS_ONE_G / 1000.0f;
 static int openUart(const char *uart_name, int baud);
 #endif
 
+
+
+
+#ifdef ENABLE_JOYSTICK
+#define JS_EVENT_BUTTON 0x01 // button pressed/released
+#define JS_EVENT_AXIS   0x02 // joystick moved
+#define JS_EVENT_INIT   0x80 // initial state of device
+
+/** Minimum value of axes range */
+static const short MIN_AXIS_VALUE = -32767;
+
+/** Maximum value of axes range */
+static const short MAX_AXIS_VALUE = 32767;
+
+typedef struct{
+    unsigned int  time;     /* event timestamp in milliseconds */
+    short         value;    /* value: for buttons: 1/0 = down/up; axes: -32768~32767*/
+    unsigned char type;     /* event type */
+    unsigned char number;   /* axis/button number */
+}JS_EVENT;
+
+// static manual_control_setpoint_s _man_sp = {};
+// static orb_advert_t _man_ctrl_pub = nullptr;
+// static int _man_multi;
+
+#endif
+
 static int _fd;
 static unsigned char _buf[1024];
 sockaddr_in _srcaddr;
@@ -573,6 +600,69 @@ void Simulator::send()
 	}
 }
 
+
+#ifdef ENABLE_JOYSTICK
+void * Simulator::read_joystick_trampoline(void *)
+{
+	_instance->read_joystick();
+	return nullptr;
+}
+
+
+void Simulator::read_joystick()
+{
+	pthread_setname_np(pthread_self(), "read_joystick");
+
+	struct pollfd fd_js;
+	memset(&fd_js, 0, sizeof(fd_js));
+	fd_js.fd = open("/dev/input/js0", O_RDONLY);  //file name may be different
+	fd_js.events = POLLIN;
+
+
+	if(fd_js.fd<0)
+	{
+		PX4_INFO("can not open joystick, Confirm it's connected!!");
+		return ;
+	}
+
+	PX4_INFO("Make sure throttle is down!");
+
+	JS_EVENT js_event = {0};
+
+	// get the initial state of joystick
+	// 
+	
+	int pret = -1;
+	int bytes = 0;
+
+	while (true) {
+
+		pret = ::poll(&fd_js, 1, 100);
+
+		if (pret>0 && (fd_js.revents & POLLIN)) {
+
+			// Attempt to sample an event from the joystick
+			bytes = ::read(fd_js.fd, &js_event, sizeof(JS_EVENT));
+
+			if (bytes == sizeof(JS_EVENT)) {
+				if (js_event.type & JS_EVENT_BUTTON) {
+					printf("Button %u is %s\n", js_event.number, js_event.value == 0 ? "up" : "down");
+				}
+
+				if (js_event.type & JS_EVENT_AXIS) {
+					printf("Axis %u is at position %d\n", js_event.number, js_event.value);
+				}
+
+				//todo
+
+				//orb_publish_auto(ORB_ID(manual_control_setpoint), &_man_ctrl_pub, &_man_sp, &_man_multi, ORB_PRIO_HIGH);
+			}
+		}
+	}
+
+}
+#endif
+
 void Simulator::initializeSensorData()
 {
 	// write sensor data to memory so that drivers can copy data from there
@@ -655,11 +745,30 @@ void Simulator::pollForMAVLinkMessages(bool publish, int udp_port)
 	param.sched_priority = SCHED_PRIORITY_DEFAULT + 40;
 	(void)pthread_attr_setschedparam(&sender_thread_attr, &param);
 
+#ifdef ENABLE_JOYSTICK
+	pthread_t readJS_thread;
+
+	//lazily use the same as sender
+	pthread_attr_t readJS_thread_attr;
+	pthread_attr_init(&readJS_thread_attr);
+	pthread_attr_setstacksize(&readJS_thread_attr, PX4_STACK_ADJUSTED(4000));
+
+	struct sched_param param2;
+	(void)pthread_attr_getschedparam(&readJS_thread_attr, &param2);
+
+	/* low priority */  //caitodo ignore this
+	param2.sched_priority = SCHED_PRIORITY_DEFAULT + 40;
+	(void)pthread_attr_setschedparam(&readJS_thread_attr, &param2);
+#endif
+
+
+
 	struct pollfd fds[2];
 	memset(fds, 0, sizeof(fds));
 	unsigned fd_count = 1;
 	fds[0].fd = _fd;
 	fds[0].events = POLLIN;
+
 
 #ifdef ENABLE_UART_RC_INPUT
 	// setup serial connection to autopilot (used to get manual controls)
@@ -679,6 +788,7 @@ void Simulator::pollForMAVLinkMessages(bool publish, int udp_port)
 	}
 
 #endif
+
 
 	int len = 0;
 
@@ -744,6 +854,11 @@ void Simulator::pollForMAVLinkMessages(bool publish, int udp_port)
 	// got data from simulator, now activate the sending thread
 	pthread_create(&sender_thread, &sender_thread_attr, Simulator::sending_trampoline, nullptr);
 	pthread_attr_destroy(&sender_thread_attr);
+
+#ifdef ENABLE_JOYSTICK
+	pthread_create(&readJS_thread, &readJS_thread_attr, Simulator::read_joystick_trampoline, nullptr);
+	pthread_attr_destroy(&readJS_thread_attr);
+#endif
 
 	mavlink_status_t udp_status = {};
 
