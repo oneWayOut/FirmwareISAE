@@ -873,7 +873,11 @@ void Simulator::pollForMAVLinkMessages(bool publish, int udp_port)
 		}
 
 #ifdef ENABLE_JOYSTICK
-		if (fds[1].fd>0 && (fds[1].revents & POLLIN)) {
+		if (fds[1].fd < 0) {
+			continue;
+		}
+
+		if (fds[1].revents & POLLIN) {
 
 			// read event from the joystick
 			len = ::read(fds[1].fd, &js_event, sizeof(JS_EVENT));
@@ -884,19 +888,23 @@ void Simulator::pollForMAVLinkMessages(bool publish, int udp_port)
 				switch (js_event.type) {
 				case JS_EVENT_BUTTON:
 					//use the button as the mode selector
-					if (js_event.value == 1) {
-						switch (js_event.number)
-						{
+					if (js_event.value == 1) {  //button down
+						switch (js_event.number) {
+						//in the function set_main_state_rc() of commander.cpp, 
+						//the flight mode is changed based on the manual_control_setpoint topic.
 						case 0:   //MAIN_STATE_MANUAL
-                            _man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_OFF;
+							_man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_OFF;
 							_man_sp.man_switch = manual_control_setpoint_s::SWITCH_POS_ON;
+							//PX4_INFO("cai MANUAL switch");
 							break;
 						case 1:  //MAIN_STATE_STAB
 							_man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_OFF;
 							_man_sp.stab_switch = manual_control_setpoint_s::SWITCH_POS_ON;
+							//PX4_INFO("cai STAB switch");
 							break;
 						case 2:  //MAIN_STATE_AUTO_MISSION
 							_man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_ON;
+							//PX4_INFO("cai MISSION switch");
 							break;
 						default :
 							//todo, maybe we will need more modes later
@@ -908,44 +916,44 @@ void Simulator::pollForMAVLinkMessages(bool publish, int udp_port)
 					//roll, pitch, throttle, yaw.
 					switch (js_event.number) {
 					case 0:  //Roll      -32767~32767  left~right
-						_man_sp.y = (float)(js_event.value/MAX_AXIS_VALUE);
+						_man_sp.y = (float)js_event.value/(float)MAX_AXIS_VALUE;
 						break;
-					case 1:  //Pitch     32767~-32767  down~up
-						_man_sp.x = (float)(-js_event.value/MAX_AXIS_VALUE);
+					case 1:  //Pitch     32767~-32767  backward~forward
+						_man_sp.x = (float)(-js_event.value)/MAX_AXIS_VALUE;
 						break;
-					case 2:  //Throttle  32767~-32767  0~1
-						_man_sp.z = (float)((MAX_AXIS_VALUE-js_event.value)/(MAX_AXIS_VALUE*2));
+					case 2:  //Throttle  32767~-32767  min~max
+						_man_sp.z = (float)(MAX_AXIS_VALUE-js_event.value)/(MAX_AXIS_VALUE*2);
 						break;
 					case 3:  //Yaw       -32767~32767  left~right
-						_man_sp.r = (float)(js_event.value/MAX_AXIS_VALUE);
+						_man_sp.r = (float)js_event.value/MAX_AXIS_VALUE;
 						break;
 					default:
 						break;
 					}
+					//for debug info
+					//printf("R, P, T, Y = %.4f, %.4f, %.4f, %.4f;\n", double(_man_sp.y), double(_man_sp.x), double(_man_sp.z), double(_man_sp.r));
 					break;
 				default:
 					break;
 				}
-
-				/* for debug!!
-				if (js_event.type & JS_EVENT_BUTTON) {
-					printf("Button %u is %s\n", js_event.number, js_event.value == 0 ? "up" : "down");
-				}
-
-				if (js_event.type & JS_EVENT_AXIS) {
-					printf("Axis %u is at position %d\n", js_event.number, js_event.value);
-				}*/
 			}
 		}
 
-		_man_sp.timestamp = hrt_absolute_time();
-		orb_publish_auto(ORB_ID(manual_control_setpoint), &_man_ctrl_pub, &_man_sp, &_man_multi, ORB_PRIO_HIGH);
+		//caitodo add filter on the axis control input
 
-		//clear switch seletions
-		_man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_NONE;
-		_man_sp.man_switch  = manual_control_setpoint_s::SWITCH_POS_NONE;
-		_man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_NONE;
-		_man_sp.stab_switch = manual_control_setpoint_s::SWITCH_POS_NONE;
+		//publish this topic every 50ms, otherwise we will spam this topic, 
+		//And the commander module will definitely lose usefull topic messages.
+		if (hrt_elapsed_time(&_man_sp.timestamp) > 50000)
+		{
+			_man_sp.timestamp = hrt_absolute_time();
+			orb_publish_auto(ORB_ID(manual_control_setpoint), &_man_ctrl_pub, &_man_sp, &_man_multi, ORB_PRIO_HIGH);
+
+			//clear switch seletions
+			_man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_NONE;
+			_man_sp.man_switch  = manual_control_setpoint_s::SWITCH_POS_NONE;
+			_man_sp.mode_switch = manual_control_setpoint_s::SWITCH_POS_NONE;
+			_man_sp.stab_switch = manual_control_setpoint_s::SWITCH_POS_NONE;
+		}
 #endif
 
 #ifdef ENABLE_UART_RC_INPUT
