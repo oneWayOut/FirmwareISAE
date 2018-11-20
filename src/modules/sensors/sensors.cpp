@@ -87,6 +87,8 @@
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_magnetometer.h>
 
+#include <uORB/topics/adc_66v_raw.h>
+
 #include <DevMgr.hpp>
 
 #include "parameters.h"
@@ -190,9 +192,13 @@ private:
 	DataValidator	_airspeed_validator;		/**< data validator to monitor airspeed */
 
 #ifdef ADC_AIRSPEED_VOLTAGE_CHANNEL
+	#if 0
 	differential_pressure_s	_diff_pres {};
-
 	orb_advert_t	_diff_pres_pub{nullptr};			/**< differential_pressure */
+	#else
+	adc_66v_raw_s   _adc66v_raw {};
+	orb_advert_t    _adc66v_raw_pub {nullptr};
+	#endif
 #endif /* ADC_AIRSPEED_VOLTAGE_CHANNEL */
 
 	Parameters		_parameters{};			/**< local copies of interesting parameters */
@@ -470,6 +476,7 @@ Sensors::adc_poll()
 
 				if (ADC_AIRSPEED_VOLTAGE_CHANNEL == buf_adc[i].am_channel) {
 
+					#if 0
 					/* calculate airspeed, raw is the difference from */
 					const float voltage = (float)(buf_adc[i].am_data) * 3.3f / 4096.0f * 2.0f;  // V_ref/4096 * (voltage divider factor)
 
@@ -491,6 +498,14 @@ Sensors::adc_poll()
 						int instance;
 						orb_publish_auto(ORB_ID(differential_pressure), &_diff_pres_pub, &_diff_pres, &instance, ORB_PRIO_DEFAULT);
 					}
+					#else
+					_adc66v_raw.timestamp = t;
+					_adc66v_raw.raw_value = buf_adc[i].am_data;
+
+					int instance;
+					orb_publish_auto(ORB_ID(adc_66v_raw), &_adc66v_raw_pub, &_adc66v_raw, &instance, ORB_PRIO_DEFAULT);
+
+					#endif
 
 				} else
 #endif /* ADC_AIRSPEED_VOLTAGE_CHANNEL */

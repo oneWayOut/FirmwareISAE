@@ -364,6 +364,8 @@
 #define ADC_5V_RAIL_SENSE		4
 #define ADC_AIRSPEED_VOLTAGE_CHANNEL	15
 
+#define ADC_66V_CHANNEL	                15  //cai added
+
 /* Define Battery 1 Voltage Divider and A per V
  */
 
