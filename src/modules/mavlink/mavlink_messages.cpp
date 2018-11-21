@@ -101,6 +101,9 @@
 #include <uORB/topics/sensor_gyro.h>
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_magnetometer.h>
+
+#include <uORB/topics/adc_66v_raw.h>
+
 #include <uORB/uORB.h>
 
 using matrix::wrap_2pi;
@@ -531,9 +534,12 @@ private:
 	MavlinkOrbSubscription *_cpuload_sub;
 	MavlinkOrbSubscription *_battery_status_sub;
 
+	MavlinkOrbSubscription *_adc66v_raw_sub;
+
 	uint64_t _status_timestamp{0};
 	uint64_t _cpuload_timestamp{0};
 	uint64_t _battery_status_timestamp{0};
+	uint64_t _adc66v_timestamp{0};
 
 	/* do not allow top copying this class */
 	MavlinkStreamSysStatus(MavlinkStreamSysStatus &) = delete;
@@ -543,7 +549,8 @@ protected:
 	explicit MavlinkStreamSysStatus(Mavlink *mavlink) : MavlinkStream(mavlink),
 		_status_sub(_mavlink->add_orb_subscription(ORB_ID(vehicle_status))),
 		_cpuload_sub(_mavlink->add_orb_subscription(ORB_ID(cpuload))),
-		_battery_status_sub(_mavlink->add_orb_subscription(ORB_ID(battery_status)))
+		_battery_status_sub(_mavlink->add_orb_subscription(ORB_ID(battery_status))),
+		_adc66v_raw_sub(_mavlink->add_orb_subscription(ORB_ID(adc_66v_raw)))
 	{}
 
 	bool send(const hrt_abstime t)
@@ -552,11 +559,14 @@ protected:
 		cpuload_s cpuload = {};
 		battery_status_s battery_status = {};
 
+		adc_66v_raw_s   _adc66v_raw = {};
+
 		const bool updated_status = _status_sub->update(&_status_timestamp, &status);
 		const bool updated_cpuload = _cpuload_sub->update(&_cpuload_timestamp, &cpuload);
 		const bool updated_battery = _battery_status_sub->update(&_battery_status_timestamp, &battery_status);
+		const bool updated_adc66v  = _adc66v_raw_sub->update(&_adc66v_timestamp, &_adc66v_raw);
 
-		if (updated_status || updated_battery || updated_cpuload) {
+		if (updated_status || updated_battery || updated_cpuload || updated_adc66v) {
 			mavlink_sys_status_t msg = {};
 
 			msg.onboard_control_sensors_present = status.onboard_control_sensors_present;
@@ -572,8 +582,15 @@ protected:
 			msg.errors_count1 = 0;
 			msg.errors_count2 = 0;
 			msg.errors_count3 = 0;
-			msg.errors_count4 = 0;
-
+			//msg.errors_count4 = 0;
+			//caiTODO   unmatch type: uint16_t and int32_t,
+			#if 0  
+			msg.errors_count4 = _adc66v_raw.raw_value;
+			#else
+			//FOR test mavlink
+			static uint16_t myCounter = 0;
+			msg.errors_count4 = (++myCounter)/4;
+			#endif
 			mavlink_msg_sys_status_send_struct(_mavlink->get_channel(), &msg);
 
 			/* battery status message with higher resolution */
