@@ -18,7 +18,7 @@ set(config_module_list
 	#drivers/imu/bmi160
 	#drivers/barometer/bmp280
 	#drivers/bst
-	drivers/camera_trigger
+	#drivers/camera_trigger
 	#drivers/frsky_telemetry
 	drivers/gps
 	#drivers/hott
@@ -34,7 +34,7 @@ set(config_module_list
 	drivers/imu/mpu9250
 	#drivers/oreoled
 	#drivers/protocol_splitter
-	drivers/pwm_input
+	#drivers/pwm_input
 	#drivers/pwm_out_sim
 	drivers/px4flow
 	drivers/px4fmu

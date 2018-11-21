@@ -1,11 +1,16 @@
 # funUAV
 
 ## TODO
-
- * cherrypick commits from master to remove unused modules
- * 接入角度传感器数据，并能发送给地面站显示，将角度数据通过uORB传递给其他模块使用;
+ * buy wire.
  * Control Law
  * 锁尾控制
+ * remove or add modules in *nuttx_px4fmu-v2_default.cmake* 
+   * add control law module
+   * check magnetometer
+   * disable distance_sensor
+   * disable mc, fw, vtol;
+
+
 
 
  original diff_pres.error_count is useless
