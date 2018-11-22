@@ -4,6 +4,7 @@
  * buy wire.
  * Control Law
  * 锁尾控制
+ * rcS 文件修改
  * remove or add modules in *nuttx_px4fmu-v2_default.cmake* 
    * add control law module
    * check magnetometer

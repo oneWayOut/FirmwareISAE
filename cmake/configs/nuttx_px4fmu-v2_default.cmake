@@ -97,7 +97,7 @@ set(config_module_list
 	#
 	# General system control
 	#
-	modules/camera_feedback
+	#modules/camera_feedback
 	modules/commander
 	modules/events
 	#modules/gpio_led
@@ -127,6 +127,8 @@ set(config_module_list
 	modules/mc_att_control
 	modules/mc_pos_control
 	modules/vtol_att_control
+
+	examples/fan_aircraft
 
 	#
 	# Logging
