@@ -22,8 +22,6 @@ then
     param set BAT_CAPACITY 240
     param set BAT_SOURCE 1
     param set PWM_DISARMED 0
-    param set PWM_MIN 0
-    param set PWM_MAX 255
     param set SYS_COMPANION 20
     param set MC_PITCHRATE_D 0.002
     param set MC_PITCHRATE_I 0.2

@@ -223,10 +223,10 @@ void LandingTargetEstimator::update()
 			}
 
 			if (_targetPosePub == nullptr) {
-				_targetPosePub = orb_advertise(ORB_ID(landing_target_pose), &_target_pose);
+				//_targetPosePub = orb_advertise(ORB_ID(landing_target_pose), &_target_pose);
 
 			} else {
-				orb_publish(ORB_ID(landing_target_pose), _targetPosePub, &_target_pose);
+				//orb_publish(ORB_ID(landing_target_pose), _targetPosePub, &_target_pose);
 			}
 
 			_last_update = hrt_absolute_time();

@@ -1594,7 +1594,7 @@ Commander::run()
 			orb_copy(ORB_ID(power_button_state), power_button_state_sub, &button_state);
 
 			if (button_state.event == power_button_state_s::PWR_BUTTON_STATE_REQUEST_SHUTDOWN) {
-				px4_shutdown_request(false, false);
+				//px4_shutdown_request(false, false);
 			}
 		}
 
@@ -1668,9 +1668,9 @@ Commander::run()
 					 * apparently the USB cable went away but we are still powered,
 					 * so lets reset to a classic non-usb state.
 					 */
-					mavlink_log_critical(&mavlink_log_pub, "USB disconnected, rebooting.")
+					mavlink_log_critical(&mavlink_log_pub, "USB disconnected, please reboot.")
 					usleep(400000);
-					px4_shutdown_request(true, false);
+					//px4_shutdown_request(true, false);
 				}
 			}
 		}
@@ -2745,7 +2745,8 @@ Commander::run()
 
 		// Handle shutdown request from emergency battery action
 		if(!armed.armed && dangerous_battery_level_requests_poweroff){
-			mavlink_log_critical(&mavlink_log_pub, "DANGEROUSLY LOW BATTERY, SHUT SYSTEM DOWN");
+			mavlink_log_critical(&mavlink_log_pub, "DANGEROUSLY LOW BATTERY");
+#if 0
 			usleep(200000);
 			int ret_val = px4_shutdown_request(false, false);
 
@@ -2756,6 +2757,7 @@ Commander::run()
 			} else {
 				while (1) { usleep(1); }
 			}
+#endif
 		}
 
 		usleep(COMMANDER_MONITORING_INTERVAL);

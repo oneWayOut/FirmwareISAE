@@ -54,7 +54,6 @@ then
 	param set MC_TPA_RATE_P 1.0
 
 
-	param set PWM_MIN 1075
 
 	param set MPC_THR_MIN 0.06
 	param set MPC_MANTHR_MIN 0.06

@@ -254,18 +254,11 @@ uint16_t		r_page_servo_control_max[PX4IO_SERVO_COUNT] = { PWM_DEFAULT_MAX, PWM_D
 /**
  * PAGE 108
  *
- * trim values for center position
+ * midnum PWM values when armed
  *
  */
-int16_t		r_page_servo_control_trim[PX4IO_SERVO_COUNT] = { PWM_DEFAULT_TRIM, PWM_DEFAULT_TRIM, PWM_DEFAULT_TRIM, PWM_DEFAULT_TRIM, PWM_DEFAULT_TRIM, PWM_DEFAULT_TRIM, PWM_DEFAULT_TRIM, PWM_DEFAULT_TRIM };
+uint16_t		r_page_servo_control_mid[PX4IO_SERVO_COUNT] = { 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500 };
 
-/**
- * PAGE 109
- *
- * disarmed PWM values for difficult ESCs
- *
- */
-uint16_t		r_page_servo_disarmed[PX4IO_SERVO_COUNT] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 int
 registers_set(uint8_t page, uint8_t offset, const uint16_t *values, unsigned num_values)
@@ -288,7 +281,6 @@ registers_set(uint8_t page, uint8_t offset, const uint16_t *values, unsigned num
 		}
 
 		system_state.fmu_data_received_time = hrt_absolute_time();
-
 		break;
 
 	/* handle raw PWM input */
@@ -308,6 +300,7 @@ registers_set(uint8_t page, uint8_t offset, const uint16_t *values, unsigned num
 		}
 
 		system_state.fmu_data_received_time = hrt_absolute_time();
+		system_state.raw_pwm_received_time =  hrt_absolute_time();
 		r_status_flags |= PX4IO_P_STATUS_FLAGS_RAW_PWM;
 
 		/* Trigger all timer's channels in Oneshot mode to fire
@@ -393,59 +386,27 @@ registers_set(uint8_t page, uint8_t offset, const uint16_t *values, unsigned num
 
 		break;
 
-	case PX4IO_PAGE_CONTROL_TRIM_PWM:
+	case PX4IO_PAGE_CONTROL_MID_PWM:
+	/* copy channel data */
+	while ((offset < PX4IO_SERVO_COUNT) && (num_values > 0)) {
 
-		/* copy channel data */
-		while ((offset < PX4IO_SERVO_COUNT) && (num_values > 0)) {
+		if (*values == 0) {
+			/* ignore 0 */
+		} else if (*values > PWM_HIGHEST_MAX) {
+			r_page_servo_control_mid[offset] = PWM_HIGHEST_MAX;
 
-			r_page_servo_control_trim[offset] = *values;
+		} else if (*values < PWM_LOWEST_MIN) {
+			r_page_servo_control_mid[offset] = PWM_LOWEST_MIN;
 
-			offset++;
-			num_values--;
-			values++;
+		} else {
+			r_page_servo_control_mid[offset] = *values;
 		}
 
-		break;
-
-	case PX4IO_PAGE_DISARMED_PWM: {
-			/* flag for all outputs */
-			bool all_disarmed_off = true;
-
-			/* copy channel data */
-			while ((offset < PX4IO_SERVO_COUNT) && (num_values > 0)) {
-
-				if (*values == 0) {
-					/* 0 means disabling always PWM */
-					r_page_servo_disarmed[offset] = 0;
-
-				} else if (*values < PWM_LOWEST_MIN) {
-					r_page_servo_disarmed[offset] = PWM_LOWEST_MIN;
-					all_disarmed_off = false;
-
-				} else if (*values > PWM_HIGHEST_MAX) {
-					r_page_servo_disarmed[offset] = PWM_HIGHEST_MAX;
-					all_disarmed_off = false;
-
-				} else {
-					r_page_servo_disarmed[offset] = *values;
-					all_disarmed_off = false;
-				}
-
-				offset++;
-				num_values--;
-				values++;
-			}
-
-			if (all_disarmed_off) {
-				/* disable PWM output if disarmed */
-				r_setup_arming &= ~(PX4IO_P_SETUP_ARMING_ALWAYS_PWM_ENABLE);
-
-			} else {
-				/* enable PWM output always */
-				r_setup_arming |= PX4IO_P_SETUP_ARMING_ALWAYS_PWM_ENABLE;
-			}
-		}
-		break;
+		offset++;
+		num_values--;
+		values++;
+	}
+	break;
 
 	/* handle text going to the mixer parser */
 	case PX4IO_PAGE_MIXERLOAD:
@@ -724,14 +685,14 @@ registers_set_one(uint8_t page, uint8_t offset, uint16_t value)
 		break;
 
 	case PX4IO_PAGE_RC_CONFIG: {
-
+#if 0
 			/**
 			 * do not allow a RC config change while safety is off
 			 */
 			if (r_status_flags & PX4IO_P_STATUS_FLAGS_SAFETY_OFF) {
 				break;
 			}
-
+#endif
 			unsigned channel = offset / PX4IO_P_RC_CONFIG_STRIDE;
 			unsigned index = offset - channel * PX4IO_P_RC_CONFIG_STRIDE;
 			uint16_t *conf = &r_page_rc_input_config[channel * PX4IO_P_RC_CONFIG_STRIDE];
@@ -1014,12 +975,8 @@ registers_get(uint8_t page, uint8_t offset, uint16_t **values, unsigned *num_val
 		SELECT_PAGE(r_page_servo_control_max);
 		break;
 
-	case PX4IO_PAGE_CONTROL_TRIM_PWM:
-		SELECT_PAGE(r_page_servo_control_trim);
-		break;
-
-	case PX4IO_PAGE_DISARMED_PWM:
-		SELECT_PAGE(r_page_servo_disarmed);
+	case PX4IO_PAGE_CONTROL_MID_PWM:
+		SELECT_PAGE(r_page_servo_control_mid);
 		break;
 
 	default:

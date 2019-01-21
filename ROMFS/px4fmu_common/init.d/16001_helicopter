@@ -46,7 +46,6 @@ then
 	param set MC_ACRO_R_MAX 360.0
 	param set MC_ACRO_P_MAX 360.0
 
-	param set PWM_MIN 1075
 
 	param set MPC_THR_MIN 0.06
 	param set MPC_MANTHR_MIN 0.06

@@ -12,8 +12,6 @@ then
 	param set PWM_DISARMED 1500
 
 	# PWM range
-	param set PWM_MIN 1200
-	param set PWM_MAX 1800
 fi
 
 # PWM Hz - 50 Hz is the normal rate in RC cars, higher rates

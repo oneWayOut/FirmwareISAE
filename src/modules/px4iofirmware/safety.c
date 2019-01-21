@@ -53,7 +53,6 @@ static struct hrt_call failsafe_call;
  * Count the number of times in a row that we see the arming button
  * held down.
  */
-static unsigned counter = 0;
 
 /*
  * Define the various LED flash sequences for each system state.
@@ -75,7 +74,6 @@ static unsigned blink_counter = 0;
  */
 #define ARM_COUNTER_THRESHOLD	10
 
-static bool safety_button_pressed;
 
 static void safety_check_button(void *arg);
 static void failsafe_blink(void *arg);
@@ -97,45 +95,8 @@ failsafe_led_init(void)
 static void
 safety_check_button(void *arg)
 {
-	/*
-	 * Debounce the safety button, change state if it has been held for long enough.
-	 *
-	 */
-	safety_button_pressed = BUTTON_SAFETY;
-
-	/*
-	 * Keep pressed for a while to arm.
-	 *
-	 * Note that the counting sequence has to be same length
-	 * for arming / disarming in order to end up as proper
-	 * state machine, keep ARM_COUNTER_THRESHOLD the same
-	 * length in all cases of the if/else struct below.
-	 */
-	if (safety_button_pressed && !(r_status_flags & PX4IO_P_STATUS_FLAGS_SAFETY_OFF) &&
-	    (r_setup_arming & PX4IO_P_SETUP_ARMING_IO_ARM_OK)) {
-
-		if (counter < ARM_COUNTER_THRESHOLD) {
-			counter++;
-
-		} else if (counter == ARM_COUNTER_THRESHOLD) {
-			/* switch to armed state */
+	if (!(r_status_flags & PX4IO_P_STATUS_FLAGS_SAFETY_OFF)) {
 			PX4_ATOMIC_MODIFY_OR(r_status_flags, PX4IO_P_STATUS_FLAGS_SAFETY_OFF);
-			counter++;
-		}
-
-	} else if (safety_button_pressed && (r_status_flags & PX4IO_P_STATUS_FLAGS_SAFETY_OFF)) {
-
-		if (counter < ARM_COUNTER_THRESHOLD) {
-			counter++;
-
-		} else if (counter == ARM_COUNTER_THRESHOLD) {
-			/* change to disarmed state and notify the FMU */
-			PX4_ATOMIC_MODIFY_CLEAR(r_status_flags, PX4IO_P_STATUS_FLAGS_SAFETY_OFF);
-			counter++;
-		}
-
-	} else {
-		counter = 0;
 	}
 
 	/* Select the appropriate LED flash pattern depending on the current IO/FMU arm state */

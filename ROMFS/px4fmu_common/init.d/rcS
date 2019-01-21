@@ -183,8 +183,6 @@ then
 	set PWM_OUT none
 	set PWM_RATE p:PWM_RATE
 	set PWM_DISARMED p:PWM_DISARMED
-	set PWM_MIN p:PWM_MIN
-	set PWM_MAX p:PWM_MAX
 	set PWM_AUX_OUT none
 	set PWM_AUX_RATE none
 	set PWM_ACHDIS none
@@ -208,26 +206,6 @@ then
 		set LOGGER_BUF 64
 	fi
 
-	if ver hwcmp CRAZYFLIE
-	then
-		if param compare SYS_AUTOSTART 0
-		then
-			param set SYS_AUTOSTART 4900
-			set AUTOCNF yes
-		fi
-	fi
-
-	if ver hwcmp AEROFC_V1
-	then
-		if param compare SYS_AUTOSTART 0
-		then
-			set AUTOCNF yes
-		fi
-
-		# We don't allow changing AUTOSTART as it doesn't work in
-		# other configurations
-		param set SYS_AUTOSTART 4070
-	fi
 
 	if ver hwcmp NXPHLITE_V3
 	then
@@ -292,27 +270,10 @@ then
 	#
 	if [ $AUTOCNF == yes ]
 	then
-		# Disable safety switch by default on Pixracer and OmnibusF4SD
-		if ver hwcmp PX4FMU_V4 OMNIBUS_F4SD
-		then
-			param set CBRK_IO_SAFETY 22027
-		fi
-
 		# Run FMU as task on Pixracer and on boards with enough RAM
 		if ver hwcmp PX4FMU_V4 PX4FMU_V4PRO PX4FMU_V5
 		then
 			param set SYS_FMU_TASK 1
-		fi
-
-		if ver hwcmp OMNIBUS_F4SD
-		then
-			param set SYS_FMU_TASK 1
-			param set SYS_HAS_MAG 0
-			# use the Q attitude estimator, it works w/o mag or GPS
-			param set SYS_MC_EST_GROUP 1
-			param set ATT_ACC_COMP 0
-			param set ATT_W_ACC 0.4000
-			param set ATT_W_GYRO_BIAS 0.0000
 		fi
 
 		param set SYS_AUTOCONFIG 0
@@ -334,17 +295,7 @@ then
 		else
 			tone_alarm MLL32CP8MB
 
-			if px4io start
-			then
-				# try to safe px4 io so motor outputs dont go crazy
-				if px4io safety_on
-				then
-					# success! no-op
-				else
-					# px4io did not respond to the safety command
-					px4io stop
-				fi
-			fi
+			px4io start
 
 			if px4io forceupdate 14662 ${IO_FILE}
 			then
@@ -489,15 +440,6 @@ then
 			fi
 		fi
 
-		if [ $OUTPUT_MODE == fmu ]
-		then
-			if fmu mode_$FMU_MODE $FMU_ARGS
-			then
-			else
-				echo "FMU start failed" >> $LOG_FILE
-				tune_control play -m ${TUNE_ERR}
-			fi
-		fi
 
 		if [ $OUTPUT_MODE == mkblctrl ]
 		then
@@ -547,12 +489,7 @@ then
 		else
 			if [ $OUTPUT_MODE != fmu ]
 			then
-				if fmu mode_${FMU_MODE} $FMU_ARGS
-				then
-				else
-					echo "FMU mode_${FMU_MODE} start failed" >> $LOG_FILE
-					tune_control play -m ${TUNE_ERR}
-				fi
+				
 			fi
 		fi
 	fi
@@ -911,7 +848,7 @@ fi
 	#
 	# Start the navigator
 	#
-	navigator start
+	#navigator start
 
 	#
 	# Generic setup (autostart ID not found)
@@ -998,3 +935,4 @@ unset TUNE_ERR
 
 # Boot is complete, inform MAVLink app(s) that the system is now fully up and running
 mavlink boot_complete
+sdk start

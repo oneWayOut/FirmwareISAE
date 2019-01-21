@@ -71,6 +71,9 @@
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_magnetometer.h>
 
+extern bool _sdk_smartLong_armed;
+extern bool _sdk_ekf_is_rotary_wing;
+
 using math::constrain;
 
 extern "C" __EXPORT int ekf2_main(int argc, char *argv[]);
@@ -635,11 +638,16 @@ void Ekf2::run()
 
 		if (vehicle_status_updated) {
 			if (orb_copy(ORB_ID(vehicle_status), _status_sub, &vehicle_status) == PX4_OK) {
+				vehicle_status.arming_state = _sdk_smartLong_armed ? vehicle_status_s::ARMING_STATE_ARMED : vehicle_status_s::ARMING_STATE_STANDBY;
+				vehicle_status.is_rotary_wing = _sdk_ekf_is_rotary_wing;
 				// only fuse synthetic sideslip measurements if conditions are met
 				_ekf.set_fuse_beta_flag(!vehicle_status.is_rotary_wing && (_fuseBeta.get() == 1));
 
 				// let the EKF know if the vehicle motion is that of a fixed wing (forward flight only relative to wind)
 				_ekf.set_is_fixed_wing(!vehicle_status.is_rotary_wing);
+			}else{
+				vehicle_status.arming_state = _sdk_smartLong_armed ? vehicle_status_s::ARMING_STATE_ARMED : vehicle_status_s::ARMING_STATE_STANDBY;
+				vehicle_status.is_rotary_wing = _sdk_ekf_is_rotary_wing;
 			}
 		}
 

@@ -74,9 +74,10 @@ static volatile bool should_arm = false;
 static volatile bool should_arm_nothrottle = false;
 static volatile bool should_always_enable_pwm = false;
 static volatile bool in_mixer = false;
+static volatile uint64_t temp_fmu_recv_time = 0; 
+static volatile uint64_t temp_raw_recv_time = 0; 
+static volatile uint64_t last_fmu_update = 0;
 
-static bool new_fmu_data = false;
-static uint64_t last_fmu_update = 0;
 
 extern int _sbus_fd;
 
@@ -95,6 +96,7 @@ static int mixer_callback(uintptr_t handle, uint8_t control_group, uint8_t contr
 static int mixer_mix_threadsafe(float *outputs, volatile uint16_t *limits);
 
 static MixerGroup mixer_group(mixer_callback, 0);
+static int float_controls_to_pwm_us(uint16_t max_array[],uint16_t min_array[],uint16_t mid_array[],uint16_t* output,float *input);
 
 int mixer_mix_threadsafe(float *outputs, volatile uint16_t *limits)
 {
@@ -111,15 +113,49 @@ int mixer_mix_threadsafe(float *outputs, volatile uint16_t *limits)
 	return mixcount;
 }
 
+
+static int float_controls_to_pwm_us(uint16_t max_array[],uint16_t min_array[],uint16_t mid_array[],uint16_t* output,float *input)
+{
+	if((max_array == NULL)|(min_array==NULL)|(mid_array==NULL)|\
+		(output==NULL)|(input==NULL)){
+			return -1;
+	}
+
+	for(uint16_t i=0;i<PX4IO_SERVO_COUNT;i++){
+		if(fabsf(input[i]) > 1.5f){
+			output[i] = 0;
+		}
+		else{
+			if(input[i] < 0.0f){
+				output[i] = mid_array[i] + (((int)mid_array[i] - (int)min_array[i]) * input[i]);
+			}
+			else{
+				output[i] = mid_array[i] + (((int)max_array[i] - (int)mid_array[i]) * input[i]);
+			}
+		}
+	}
+	return 0;
+}
+
+
 void
 mixer_tick(void)
 {
-	/* check if the mixer got modified */
-	mixer_handle_text_create_mixer();
+	static float float_controls[PX4IO_SERVO_COUNT];
+	static uint16_t temp_servos[PX4IO_SERVO_COUNT];
+	static volatile bool need_to_init_timer = true;
+
+	if(need_to_init_timer == true){
+		up_pwm_servo_arm(true);
+		need_to_init_timer = false;
+	}
+	PX4_CRITICAL_SECTION(temp_fmu_recv_time = system_state.fmu_data_received_time);
+	PX4_CRITICAL_SECTION(temp_raw_recv_time = system_state.raw_pwm_received_time);
+
 
 	/* check that we are receiving fresh data from the FMU */
-	if ((system_state.fmu_data_received_time == 0) ||
-	    hrt_elapsed_time(&system_state.fmu_data_received_time) > FMU_INPUT_DROP_LIMIT_US) {
+	if ((temp_fmu_recv_time == 0) ||
+	    hrt_elapsed_time(&temp_fmu_recv_time) > FMU_INPUT_DROP_LIMIT_US) {
 
 		/* too long without FMU input, time to go to failsafe */
 		if (r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_OK) {
@@ -131,257 +167,42 @@ mixer_tick(void)
 
 	} else {
 		PX4_ATOMIC_MODIFY_OR(r_status_flags, PX4IO_P_STATUS_FLAGS_FMU_OK);
-
 		/* this flag is never cleared once OK */
 		PX4_ATOMIC_MODIFY_OR(r_status_flags, PX4IO_P_STATUS_FLAGS_FMU_INITIALIZED);
-
-		if (system_state.fmu_data_received_time > last_fmu_update) {
-			new_fmu_data = true;
-			last_fmu_update = system_state.fmu_data_received_time;
-		}
 	}
 
-	/* default to failsafe mixing - it will be forced below if flag is set */
-	source = MIX_FAILSAFE;
+	if (temp_fmu_recv_time != last_fmu_update) {
+		last_fmu_update = temp_fmu_recv_time;
+		up_pwm_update();/*this sentence is useless,because all pwm channel is not in OneShot mode*/
+	}
 
-	/*
-	 * Decide which set of controls we're using.
-	 */
-
-	/* Do not mix if we have raw PWM and FMU is ok. */
-	if ((r_status_flags & PX4IO_P_STATUS_FLAGS_RAW_PWM) &&
-	    (r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_OK)) {
-
-		if ((r_status_flags & PX4IO_P_STATUS_FLAGS_OVERRIDE) > 0) {
-			/* a channel based override has been
-			 * triggered, with FMU active */
-			source = MIX_OVERRIDE_FMU_OK;
-
-		} else {
-			/* don't actually mix anything - copy values from r_page_direct_pwm */
-			source = MIX_NONE;
-			memcpy(r_page_servos, r_page_direct_pwm, sizeof(uint16_t)*PX4IO_SERVO_COUNT);
-		}
-
-	} else {
-
-		if (!(r_status_flags & PX4IO_P_STATUS_FLAGS_OVERRIDE) &&
-		    (r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_OK) &&
-		    (r_status_flags & PX4IO_P_STATUS_FLAGS_MIXER_OK)) {
-
-			/* mix from FMU controls */
-			source = MIX_FMU;
-		}
-
-		else if (r_status_flags & PX4IO_P_STATUS_FLAGS_OVERRIDE) {
-
-			if (r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_OK) {
-
-				/* if allowed, mix from RC inputs directly up to available rc channels */
-				source = MIX_OVERRIDE_FMU_OK;
-
-			} else {
-				/* if allowed, mix from RC inputs directly */
-				source = MIX_OVERRIDE;
+	if(r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_OK){
+		for(uint16_t index=0;index<PX4IO_SERVO_COUNT;index++){
+			float_controls[index]= REG_TO_FLOAT(r_page_controls[index]);
+			if(r_setup_pwm_reverse &  (((uint16_t)1) << index) ){
+				float_controls[index] *= -1.0f;
 			}
 		}
+		float_controls_to_pwm_us(&r_page_servo_control_max[0], &r_page_servo_control_min[0], \
+							&r_page_servo_control_mid[0],&temp_servos[0], &float_controls[0]);
+	}else{
+		for(uint16_t index=0;index<PX4IO_SERVO_COUNT;index++){
+			temp_servos[index] = 0;
+		}
 	}
-
-	/*
-	 * Decide whether the servos should be armed right now.
-	 *
-	 * We must be armed, and we must have a PWM source; either raw from
-	 * FMU or from the mixer.
-	 *
-	 */
-	should_arm = (
-			     /* IO initialised without error */ (r_status_flags & PX4IO_P_STATUS_FLAGS_INIT_OK)
-			     /* and IO is armed */ 		  && (r_status_flags & PX4IO_P_STATUS_FLAGS_SAFETY_OFF)
-			     /* and FMU is armed */ 		  && (
-				     ((r_setup_arming & PX4IO_P_SETUP_ARMING_FMU_ARMED)
-				      /* and there is valid input via or mixer */         && (r_status_flags & PX4IO_P_STATUS_FLAGS_MIXER_OK))
-				     /* or direct PWM is set */               || (r_status_flags & PX4IO_P_STATUS_FLAGS_RAW_PWM)
-				     /* or failsafe was set manually */	 || ((r_setup_arming & PX4IO_P_SETUP_ARMING_FAILSAFE_CUSTOM)
-						     && !(r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_OK))
-			     )
-		     );
-
-	should_arm_nothrottle = (
-					/* IO initialised without error */ (r_status_flags & PX4IO_P_STATUS_FLAGS_INIT_OK)
-					/* and IO is armed */ 		  && (r_status_flags & PX4IO_P_STATUS_FLAGS_SAFETY_OFF)
-					/* and there is valid input via or mixer */         && (r_status_flags & PX4IO_P_STATUS_FLAGS_MIXER_OK));
-
-	should_always_enable_pwm = (r_setup_arming & PX4IO_P_SETUP_ARMING_ALWAYS_PWM_ENABLE)
-				   && (r_status_flags & PX4IO_P_STATUS_FLAGS_INIT_OK)
-				   && (r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_OK);
-
-	/*
-	 * Check if failsafe termination is set - if yes,
-	 * set the force failsafe flag once entering the first
-	 * failsafe condition.
-	 */
-	if ( /* if we have requested flight termination style failsafe (noreturn) */
-		(r_setup_arming & PX4IO_P_SETUP_ARMING_TERMINATION_FAILSAFE) &&
-		/* and we ended up in a failsafe condition */
-		(source == MIX_FAILSAFE) &&
-		/* and we should be armed, so we intended to provide outputs */
-		should_arm &&
-		/* and FMU is initialized */
-		(r_status_flags & PX4IO_P_STATUS_FLAGS_FMU_INITIALIZED)) {
-		PX4_ATOMIC_MODIFY_OR(r_setup_arming, PX4IO_P_SETUP_ARMING_FORCE_FAILSAFE);
+	
+	if(!(r_status_flags&PX4IO_P_STATUS_FLAGS_RAW_PWM)){
+		memcpy(r_page_servos, temp_servos, sizeof(uint16_t)*PX4IO_SERVO_COUNT);
 	}
-
-	/*
-	 * Check if we should force failsafe - and do it if we have to
-	 */
-	if (r_setup_arming & PX4IO_P_SETUP_ARMING_FORCE_FAILSAFE) {
-		source = MIX_FAILSAFE;
-	}
-
-	/*
-	 * Set failsafe status flag depending on mixing source
-	 */
-	if (source == MIX_FAILSAFE) {
-		PX4_ATOMIC_MODIFY_OR(r_status_flags, PX4IO_P_STATUS_FLAGS_FAILSAFE);
-
-	} else {
-		PX4_ATOMIC_MODIFY_CLEAR(r_status_flags, (PX4IO_P_STATUS_FLAGS_FAILSAFE));
-	}
-
-	/*
-	 * Set simple mixer trim values
-	 * (there should be a "dirty" flag to indicate that r_page_servo_control_trim has changed)
-	 */
-	mixer_group.set_trims(r_page_servo_control_trim, PX4IO_SERVO_COUNT);
-
-	/*
-	 * Update air-mode parameter
-	 */
-	mixer_group.set_airmode(REG_TO_BOOL(r_setup_airmode));
-
-
-	/*
-	 * Run the mixers.
-	 */
-	if (source == MIX_FAILSAFE) {
-
-		/* copy failsafe values to the servo outputs */
-		for (unsigned i = 0; i < PX4IO_SERVO_COUNT; i++) {
-			r_page_servos[i] = r_page_servo_failsafe[i];
-
-			/* safe actuators for FMU feedback */
-			r_page_actuators[i] = FLOAT_TO_REG((r_page_servos[i] - 1500) / 600.0f);
-		}
-
-
-	} else if (source != MIX_NONE && (r_status_flags & PX4IO_P_STATUS_FLAGS_MIXER_OK)
-		   && !(r_setup_arming & PX4IO_P_SETUP_ARMING_LOCKDOWN)) {
-
-		float	outputs[PX4IO_SERVO_COUNT];
-		unsigned mixed;
-
-		if (REG_TO_FLOAT(r_setup_slew_max) > FLT_EPSILON) {
-			/*  maximum value the outputs of the multirotor mixer are allowed to change in this cycle
-			 * factor 2 is needed because actuator outputs are in the range [-1,1]
-			 */
-			float delta_out_max = 2.0f * 1000.0f * dt / (r_page_servo_control_max[0] - r_page_servo_control_min[0]) / REG_TO_FLOAT(
-						      r_setup_slew_max);
-			mixer_group.set_max_delta_out_once(delta_out_max);
-		}
-
-		/* mix */
-		/* update parameter for mc thrust model if it updated */
-		if (update_mc_thrust_param) {
-			mixer_group.set_thrust_factor(REG_TO_FLOAT(r_setup_thr_fac));
-			update_mc_thrust_param = false;
-		}
-
-		/* mix */
-		mixed = mixer_mix_threadsafe(&outputs[0], &r_mixer_limits);
-
-		/* the pwm limit call takes care of out of band errors */
-		pwm_limit_calc(should_arm, should_arm_nothrottle, mixed, r_setup_pwm_reverse, r_page_servo_disarmed,
-			       r_page_servo_control_min, r_page_servo_control_max, outputs, r_page_servos, &pwm_limit);
-
-		/* clamp unused outputs to zero */
-		for (unsigned i = mixed; i < PX4IO_SERVO_COUNT; i++) {
-			r_page_servos[i] = 0;
-			outputs[i] = 0.0f;
-		}
-
-		/* store normalized outputs */
-		for (unsigned i = 0; i < PX4IO_SERVO_COUNT; i++) {
-			r_page_actuators[i] = FLOAT_TO_REG(outputs[i]);
-		}
-
-
-		if (mixed  && new_fmu_data) {
-			new_fmu_data = false;
-
-			/* Trigger all timer's channels in Oneshot mode to fire
-			 * the oneshots with updated values.
-			 */
-
-			up_pwm_update();
+	else{
+		memcpy(r_page_servos, r_page_direct_pwm, sizeof(uint16_t)*PX4IO_SERVO_COUNT);
+		if(hrt_elapsed_time(&temp_raw_recv_time) > 500000){
+			r_status_flags &= ~PX4IO_P_STATUS_FLAGS_RAW_PWM;
 		}
 	}
 
-	/* set arming */
-	bool needs_to_arm = (should_arm || should_arm_nothrottle || should_always_enable_pwm);
-
-	/* lockdown means to send a valid pulse which disables the outputs */
-	if (r_setup_arming & PX4IO_P_SETUP_ARMING_LOCKDOWN) {
-		needs_to_arm = true;
-	}
-
-	if (needs_to_arm && !mixer_servos_armed) {
-		/* need to arm, but not armed */
-		up_pwm_servo_arm(true);
-		mixer_servos_armed = true;
-		PX4_ATOMIC_MODIFY_OR(r_status_flags, PX4IO_P_STATUS_FLAGS_OUTPUTS_ARMED);
-		isr_debug(5, "> PWM enabled");
-
-	} else if (!needs_to_arm && mixer_servos_armed) {
-		/* armed but need to disarm */
-		up_pwm_servo_arm(false);
-		mixer_servos_armed = false;
-		PX4_ATOMIC_MODIFY_CLEAR(r_status_flags, (PX4IO_P_STATUS_FLAGS_OUTPUTS_ARMED));
-		isr_debug(5, "> PWM disabled");
-	}
-
-	if (mixer_servos_armed && (should_arm || should_arm_nothrottle)
-	    && !(r_setup_arming & PX4IO_P_SETUP_ARMING_LOCKDOWN)) {
-		/* update the servo outputs. */
-		for (unsigned i = 0; i < PX4IO_SERVO_COUNT; i++) {
-			up_pwm_servo_set(i, r_page_servos[i]);
-		}
-
-		/* set S.BUS1 or S.BUS2 outputs */
-
-		if (r_setup_features & PX4IO_P_SETUP_FEATURES_SBUS2_OUT) {
-			sbus2_output(_sbus_fd, r_page_servos, PX4IO_SERVO_COUNT);
-
-		} else if (r_setup_features & PX4IO_P_SETUP_FEATURES_SBUS1_OUT) {
-			sbus1_output(_sbus_fd, r_page_servos, PX4IO_SERVO_COUNT);
-		}
-
-	} else if (mixer_servos_armed && (should_always_enable_pwm
-					  || (r_setup_arming & PX4IO_P_SETUP_ARMING_LOCKDOWN))) {
-		/* set the disarmed servo outputs. */
-		for (unsigned i = 0; i < PX4IO_SERVO_COUNT; i++) {
-			up_pwm_servo_set(i, r_page_servo_disarmed[i]);
-			/* copy values into reporting register */
-			r_page_servos[i] = r_page_servo_disarmed[i];
-		}
-
-		/* set S.BUS1 or S.BUS2 outputs */
-		if (r_setup_features & PX4IO_P_SETUP_FEATURES_SBUS1_OUT) {
-			sbus1_output(_sbus_fd, r_page_servo_disarmed, PX4IO_SERVO_COUNT);
-		}
-
-		if (r_setup_features & PX4IO_P_SETUP_FEATURES_SBUS2_OUT) {
-			sbus2_output(_sbus_fd, r_page_servo_disarmed, PX4IO_SERVO_COUNT);
-		}
+	for (uint16_t i = 0; i < PX4IO_SERVO_COUNT; i++) {
+		up_pwm_servo_set(i, r_page_servos[i]);
 	}
 }
 

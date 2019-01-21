@@ -134,9 +134,9 @@ void LandDetector::_cycle()
 		_landDetected.ground_contact = ground_contactDetected;
 		_landDetected.alt_max = alt_max;
 
-		int instance;
-		orb_publish_auto(ORB_ID(vehicle_land_detected), &_landDetectedPub, &_landDetected,
-				 &instance, ORB_PRIO_DEFAULT);
+		//int instance;
+		/*orb_publish_auto(ORB_ID(vehicle_land_detected), &_landDetectedPub, &_landDetected,
+				 &instance, ORB_PRIO_DEFAULT);*/
 	}
 
 	// set the flight time when disarming (not necessarily when landed, because all param changes should

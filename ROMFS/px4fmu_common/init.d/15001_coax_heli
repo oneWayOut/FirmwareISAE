@@ -23,8 +23,6 @@ then
 	param set RTL_DESCEND_ALT 10.0
 
 	param set PWM_DISARMED 900
-	param set PWM_MIN 1075
-	param set PWM_MAX 1950
 
 	param set MC_ROLL_P 6.5
 	param set MC_ROLLRATE_P 0.17

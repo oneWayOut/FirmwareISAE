@@ -36,6 +36,4 @@ then
 	param set BAT_N_CELLS 1
 
 	param set PWM_DISARMED 0
-	param set PWM_MIN 500
-	param set PWM_MAX 2200
 fi
