@@ -20,6 +20,7 @@
 #include <uORB/uORB.h>
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/parameter_update.h>
 
 #include <uORB/topics/adc_66v_raw.h>
 
@@ -31,8 +32,21 @@
 
 
 
-//param handle 
-static param_t temp_p;
+//param handle   refer to examples/fixedwing_control:
+static param_t temp_p;  
+
+/* subscribe to sensor_combined topic */
+static int sensor_sub;
+static int adc_sub;
+static int v_att_sub;
+static int param_sub;
+
+
+static struct sensor_combined_s sensor_comb;
+static struct adc_66v_raw_s  adc66v = {0};
+static struct vehicle_attitude_s		v_att = {0};		/**< vehicle attitude */
+
+
 
 static void parameters_init(void)
 {
@@ -47,6 +61,47 @@ static void parameters_update(float * pVal)
 }
 
 
+static void poll_topic_msgs(void)
+{
+
+	bool _updated;
+
+
+	orb_check(adc_sub, &_updated);
+	if (_updated)
+	{
+		orb_copy(ORB_ID(adc_66v_raw), adc_sub, &adc66v);
+		//other things to do
+	}
+
+
+	orb_check(sensor_sub, &_updated);
+	if (_updated)
+	{
+		orb_copy(ORB_ID(sensor_combined), sensor_sub, &sensor_comb);
+	}
+
+
+	/* params update*/
+	orb_check(param_sub, &_updated);
+	if (_updated)
+	{
+		struct parameter_update_s params_update;
+		orb_copy(ORB_ID(parameter_update), param_sub, &params_update);
+
+		/* if a param update occured, re-read our parameters */
+		//parameter test
+		float temp = 0;
+		parameters_update(&temp);
+
+		PX4_INFO("caiParam:\t%8.4f\n", (double)temp);
+	}
+
+	
+
+	
+
+}
 
 
 __EXPORT int fan_aircraft_main(int argc, char *argv[]);
@@ -56,93 +111,66 @@ int fan_aircraft_main(int argc, char *argv[])
 	PX4_INFO("Hello Sky!");
 
 	parameters_init();
-
-	/* subscribe to sensor_combined topic */
-	int sensor_sub_fd = orb_subscribe(ORB_ID(sensor_combined));
-	/* limit the update rate to 5 Hz */
-	orb_set_interval(sensor_sub_fd, 200);
+	float temp = 0;
+	parameters_update(&temp);
 
 
-	int adc_sub_fd  = orb_subscribe(ORB_ID(adc_66v_raw));
-	struct adc_66v_raw_s  adc66v = {0};
+	sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
+	adc_sub  = orb_subscribe(ORB_ID(adc_66v_raw));
+	v_att_sub     = orb_subscribe(ORB_ID(vehicle_attitude));
+	param_sub = orb_subscribe(ORB_ID(parameter_update));
 
-	/* advertise attitude topic */
-	struct vehicle_attitude_s att;
-	memset(&att, 0, sizeof(att));
-	orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude), &att);
 
 	/* one could wait for multiple topics with this technique, just using one here */
 	px4_pollfd_struct_t fds[] = {
-		{ .fd = sensor_sub_fd,   .events = POLLIN },
+		{ .fd = v_att_sub,   .events = POLLIN },
 		/* there could be more file descriptors here, in the form like:
 		 * { .fd = other_sub_fd,   .events = POLLIN },
 		 */
 	};
 
-	int error_counter = 0;
 
-	for (int i = 0; i < 5; i++) {
-		/* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
-		int poll_ret = px4_poll(fds, 1, 1000);
+	while (1) {
+		/* wait for sensor update of 1 file descriptor for 80 ms */
+		int poll_ret = px4_poll(fds, 1, 80);
 
 		/* handle the poll result */
 		if (poll_ret == 0) {
 			/* this means none of our providers is giving us data */
 			PX4_ERR("Got no data within a second");
+			continue;
+		} 
 
-		} else if (poll_ret < 0) {
+		if (poll_ret < 0) {
 			/* this is seriously bad - should be an emergency */
-			if (error_counter < 10 || error_counter % 50 == 0) {
-				/* use a counter to prevent flooding (and slowing us down) */
-				PX4_ERR("ERROR return value from poll(): %d", poll_ret);
-			}
+			PX4_ERR("ERROR return value from poll(): %d", poll_ret);
 
-			error_counter++;
-
-		} else {
-
-			if (fds[0].revents & POLLIN) {
-				/* obtained data for the first file descriptor */
-				struct sensor_combined_s raw;
-				/* copy sensors raw data into local buffer */
-				orb_copy(ORB_ID(sensor_combined), sensor_sub_fd, &raw);
-				PX4_INFO("Accelerometer:\t%8.4f\t%8.4f\t%8.4f",
-					 (double)raw.accelerometer_m_s2[0],
-					 (double)raw.accelerometer_m_s2[1],
-					 (double)raw.accelerometer_m_s2[2]);
-
-				/* set att and publish this information for other apps
-				 the following does not have any meaning, it's just an example
-				*/
-				att.q[0] = raw.accelerometer_m_s2[0];
-				att.q[1] = raw.accelerometer_m_s2[1];
-				att.q[2] = raw.accelerometer_m_s2[2];
-
-				orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
-			}
-
-
-			//parameter test
-			
-			float temp = 0;
-			parameters_update(&temp);
-
-			PX4_INFO("caiParam:\t%8.4f\n", (double)temp);
-
-			/* there could be more file descriptors here, in the form like:
-			 * if (fds[1..n].revents & POLLIN) {}
-			 */
-			
-			bool _updated;
-			orb_check(adc_sub_fd, &_updated);
-
-			if (_updated)
-			{
-				orb_copy(ORB_ID(adc_66v_raw), adc_sub_fd, &adc66v);
-				//other things to do
-			}
+			/* sleep a bit before next try */
+			usleep(100000);
+			continue;
 
 		}
+
+
+		/* only run controller if attitude changed */
+		if (fds[0].revents & POLLIN) {
+			/* obtained data for the first file descriptor */
+			orb_copy(ORB_ID(vehicle_attitude), v_att_sub, &v_att);
+
+
+			poll_topic_msgs();
+
+
+			//TODO delete later
+			PX4_INFO("Accelerometer:\t%8.4f\t%8.4f\t%8.4f",
+				 (double)sensor_comb.accelerometer_m_s2[0],
+				 (double)sensor_comb.accelerometer_m_s2[1],
+				 (double)sensor_comb.accelerometer_m_s2[2]);
+
+
+			
+		}
+
 	}
 
 	PX4_INFO("exiting");

@@ -117,6 +117,9 @@ set(config_module_list
 	#modules/landing_target_estimator
 	#modules/wind_estimator
 
+	# my controller
+	examples/fan_aircraft
+
 	#
 	# Vehicle Control
 	#
@@ -128,7 +131,7 @@ set(config_module_list
 	modules/mc_pos_control
 	modules/vtol_att_control
 
-	examples/fan_aircraft
+
 
 	#
 	# Logging

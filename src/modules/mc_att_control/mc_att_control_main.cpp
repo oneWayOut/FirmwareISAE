@@ -657,8 +657,12 @@ MulticopterAttitudeControl::run()
 		/* run controller on gyro changes */
 		if (poll_fds.revents & POLLIN) {
 			const hrt_abstime now = hrt_absolute_time();
+
+			//printf("mc: dt = %d\n", now-last_run);
+
 			float dt = (now - last_run) / 1e6f;
 			last_run = now;
+
 
 			/* guard against too small (< 2ms) and too large (> 20ms) dt's */
 			if (dt < 0.002f) {
