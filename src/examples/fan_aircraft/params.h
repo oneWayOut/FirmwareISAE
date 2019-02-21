@@ -7,14 +7,12 @@
 
 #include <parameters/param.h>
 
-struct params {
-	float hdng_p;
-	float roll_p;
-	float pitch_p;
+struct fan_params {
+	float cai_test;
+	int   adc360_val;
 };
 
-struct param_handles {
-	param_t hdng_p;
-	param_t roll_p;
-	param_t pitch_p;
+struct fan_param_handles {
+	param_t cai_test_h;
+	param_t adc360_val_h;
 };

@@ -18,13 +18,21 @@
 #include <parameters/param.h>
 
 #include <uORB/uORB.h>
-#include <uORB/topics/sensor_combined.h>
+#include <uORB/topics/sensor_combined.h>  //TODO delete
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/parameter_update.h>
 
 #include <uORB/topics/adc_66v_raw.h>
 
+//TODO input :
+//#include <uORB/topics/manual_control_setpoint.h>  remote controller
+//#include <uORB/topics/vehicle_control_mode.h>   armed status
+//other topics????
+//can fill in  vehicle_rates_setpoint message with our sepecific stuff.
+// OUTPUT:
+// #include <uORB/topics/actuator_controls.h>  ;	_actuators_id = ORB_ID(actuator_controls_0);
 
+//
 
 
 #include "params.h"
@@ -33,7 +41,8 @@
 
 
 //param handle   refer to examples/fixedwing_control:
-static param_t temp_p;  
+static struct fan_params        params_st;
+static struct fan_param_handles p_h;
 
 /* subscribe to sensor_combined topic */
 static int sensor_sub;
@@ -50,14 +59,14 @@ static struct vehicle_attitude_s		v_att = {0};		/**< vehicle attitude */
 
 static void parameters_init(void)
 {
-	/* PID parameters */
-	temp_p 	=	param_find("CAI_TESTPARAM");
+	p_h.cai_test_h   =  param_find("CAI_TESTPARAM");
+	p_h.adc360_val_h =  param_find("CAI_ADC360_VAL");
 }
 
-static void parameters_update(float * pVal)
+static void parameters_update(void)
 {
-	param_get(temp_p, pVal);
-
+	param_get(p_h.cai_test_h,   &(params_st.cai_test));
+	param_get(p_h.adc360_val_h, &(params_st.adc360_val));
 }
 
 
@@ -71,7 +80,7 @@ static void poll_topic_msgs(void)
 	if (_updated)
 	{
 		orb_copy(ORB_ID(adc_66v_raw), adc_sub, &adc66v);
-		//other things to do
+		//TODO filter the value to degree
 	}
 
 
@@ -91,10 +100,9 @@ static void poll_topic_msgs(void)
 
 		/* if a param update occured, re-read our parameters */
 		//parameter test
-		float temp = 0;
-		parameters_update(&temp);
+		parameters_update();
 
-		PX4_INFO("caiParam:\t%8.4f\n", (double)temp);
+		PX4_INFO("caiParam:\t%8.4f\n", (double)params_st.cai_test);
 	}
 
 	
@@ -111,8 +119,7 @@ int fan_aircraft_main(int argc, char *argv[])
 	PX4_INFO("Hello Sky!");
 
 	parameters_init();
-	float temp = 0;
-	parameters_update(&temp);
+	parameters_update();
 
 
 	sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
@@ -158,6 +165,7 @@ int fan_aircraft_main(int argc, char *argv[])
 			orb_copy(ORB_ID(vehicle_attitude), v_att_sub, &v_att);
 
 
+			//poll other topic messages to our concern
 			poll_topic_msgs();
 
 

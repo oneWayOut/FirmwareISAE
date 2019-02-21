@@ -12,12 +12,17 @@
    * disable mc, fw, vtol;
 
 
+   output channels :  4 servos, 1 rotor for tail lock: yaw control, 1 rotor for thrust.
+
+
 
 
  original diff_pres.error_count is useless
 
 
 ## reminder 
+
+ * mixer 6001_hexa_x;
 
  * update rate of ORB_ID(vehicle_attitude) is about 250Hz, which is tested at FixedwingAttitudeControl.cpp.
 

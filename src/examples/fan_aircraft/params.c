@@ -14,3 +14,15 @@
 PARAM_DEFINE_FLOAT(CAI_TESTPARAM, 0.1f);
 
 
+
+
+/**
+ * MAX Value of ADC of 360 degree
+ *
+ * MAX Value of ADC of 360 degree
+ *
+ * @min 20
+ * @max 4096
+ * @group FAN Aircraft
+ */
+PARAM_DEFINE_INT32(CAI_ADC360_VAL, 4096);
