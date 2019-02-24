@@ -467,8 +467,12 @@ void FixedwingAttitudeControl::run()
 		/* only run controller if attitude changed */
 		if (fds[0].revents & POLLIN) {
 			static uint64_t last_run = 0;
-			float deltaT = (hrt_absolute_time() - last_run) / 1000000.0f;
-			last_run = hrt_absolute_time();
+			const hrt_abstime now = hrt_absolute_time();
+			float deltaT = (now - last_run) / 1000000.0f;
+
+			//printf("fw: dt = %d\n", now-last_run);
+
+			last_run = now;
 
 			/* guard against too large deltaT's */
 			if (deltaT > 1.0f) {

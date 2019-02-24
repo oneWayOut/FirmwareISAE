@@ -197,6 +197,9 @@ MulticopterAttitudeControl::parameters_updated()
 			M_DEG_TO_RAD_F * _board_offset_y.get(),
 			M_DEG_TO_RAD_F * _board_offset_z.get()));
 	_board_rotation = board_rotation_offset * _board_rotation;
+
+
+	_adc360_val = _adc360_val_h.get();
 }
 
 void
@@ -356,6 +359,28 @@ MulticopterAttitudeControl::sensor_bias_poll()
 		orb_copy(ORB_ID(sensor_bias), _sensor_bias_sub, &_sensor_bias);
 	}
 
+	orb_check(_adc_sub, &updated);
+	if (updated)
+	{
+		orb_copy(ORB_ID(adc_66v_raw), _adc_sub, &_adc66v);
+
+		if (_adc66v.raw_value>_adc360_val || _adc66v.raw_value<0 
+			|| _adc66v.angle>M_PI_F*2.0f || _adc66v.angle <0)
+		{
+			//TODO constrain
+			PX4_ERR("adc error =%d, angle= %5.3f\n", _adc66v.raw_value, (double)_adc66v.angle);
+			_adc66v.raw_value = 0;
+			_adc66v.angle     = 0;
+		}
+
+		//
+		//printf("adc time = %llu\n", _adc66v.timestamp);
+
+		if (_now<=_adc66v.timestamp)
+		{
+			printf("may error\n");
+		}
+	}
 }
 
 /**
@@ -602,6 +627,8 @@ MulticopterAttitudeControl::run()
 	_motor_limits_sub = orb_subscribe(ORB_ID(multirotor_motor_limits));
 	_battery_status_sub = orb_subscribe(ORB_ID(battery_status));
 
+	_adc_sub         = orb_subscribe(ORB_ID(adc_66v_raw));
+
 	_gyro_count = math::min(orb_group_count(ORB_ID(sensor_gyro)), MAX_GYRO_COUNT);
 
 	if (_gyro_count == 0) {
@@ -657,8 +684,13 @@ MulticopterAttitudeControl::run()
 		/* run controller on gyro changes */
 		if (poll_fds.revents & POLLIN) {
 			const hrt_abstime now = hrt_absolute_time();
+			_now = now;
+
+			//printf("mc: dt = %llu, now = %llu;\n", now-last_run, now);
+
 			float dt = (now - last_run) / 1e6f;
 			last_run = now;
+
 
 			/* guard against too small (< 2ms) and too large (> 20ms) dt's */
 			if (dt < 0.002f) {
@@ -667,6 +699,8 @@ MulticopterAttitudeControl::run()
 			} else if (dt > 0.02f) {
 				dt = 0.02f;
 			}
+
+			
 
 			/* copy gyro data */
 			orb_copy(ORB_ID(sensor_gyro), _sensor_gyro_sub[_selected_gyro], &_sensor_gyro);
@@ -680,7 +714,7 @@ MulticopterAttitudeControl::run()
 			battery_status_poll();
 			vehicle_attitude_poll();
 			sensor_correction_poll();
-			sensor_bias_poll();
+			sensor_bias_poll();  //add adc msg poll
 
 			/* Check if we are in rattitude mode and the pilot is above the threshold on pitch
 			 * or roll (yaw can rotate 360 in normal att control).  If both are true don't
@@ -748,14 +782,60 @@ MulticopterAttitudeControl::run()
 			if (_v_control_mode.flag_control_rates_enabled) {
 				control_attitude_rates(dt);
 
+				float rollCtrl  = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;  //roll
+				float pitchCtrl = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;  //pitch
+
+
+
+				//TODO  calculate the axis and the control section
+				if ((fabsf(rollCtrl)) <= 0.00001f && (fabsf(pitchCtrl)<=0.00001f))
+				{
+					//output nothing to aileron channel in each wing;
+					;;
+				}
+				else
+				{
+					float axisAngle = atan2f(rollCtrl, pitchCtrl); //TODO check sign of the control
+
+					axisAngle -= M_PI_4_F;  // - pi/4;  TODO check the sign and the angle value
+
+					//axisAngle is the axis in which we would put max control;
+					float secAngle = sqrtf(rollCtrl*rollCtrl + pitchCtrl*pitchCtrl);   //TODO, K value;
+
+					//4 ailerons cross the section, output to aileron
+					for (int i = 0; i < 4; ++i)
+					{
+						
+					}
+
+
+
+
+					//aileron1 is aligned with pixhawk
+					if (wrap_pi(_adc66v.angle - axisAngle) < secAngle ) //TODO check sign
+					{
+						_actuators.control[2] = 0;
+					}
+
+					/*
+					channel 1 ----- throttle
+					channel 2 ----- tail lock
+					channel 3 ----- aileron1
+					channel 4 ----- aileron2
+					channel 5 ----- aileron3
+					channel 6 ----- aileron4*/
+				}
+
+
 				/* publish actuator controls */
-				_actuators.control[0] = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;
-				_actuators.control[1] = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;
-				_actuators.control[2] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;
+				_actuators.control[0] = rollCtrl;
+				_actuators.control[1] = pitchCtrl;
+				_actuators.control[2] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
 				_actuators.control[3] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
 				_actuators.control[7] = _v_att_sp.landing_gear;
 				_actuators.timestamp = hrt_absolute_time();
 				_actuators.timestamp_sample = _sensor_gyro.timestamp;
+				
 
 				/* scale effort by battery status */
 				if (_bat_scale_en.get() && _battery_status.scale > 0.0f) {

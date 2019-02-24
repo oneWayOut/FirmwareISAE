@@ -188,6 +188,9 @@ void initialize_parameter_handles(ParameterHandles &parameter_handles)
 	(void)param_find("SYS_CAL_TDEL");
 	(void)param_find("SYS_CAL_TMAX");
 	(void)param_find("SYS_CAL_TMIN");
+
+
+	parameter_handles.adc360_val_h = param_find("CAI_ADC360_VAL");  //cai added
 }
 
 int update_parameters(const ParameterHandles &parameter_handles, Parameters &parameters)
@@ -437,6 +440,8 @@ int update_parameters(const ParameterHandles &parameter_handles, Parameters &par
 	param_get(parameter_handles.air_tube_length, &parameters.air_tube_length);
 	param_get(parameter_handles.air_tube_diameter_mm, &parameters.air_tube_diameter_mm);
 
+
+	param_get(parameter_handles.adc360_val_h, &parameters.adc360_val);  //cai added
 	return ret;
 }
 

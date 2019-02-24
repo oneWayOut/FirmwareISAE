@@ -56,6 +56,10 @@
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
 
+#include <uORB/topics/adc_66v_raw.h>
+
+#include <drivers/drv_hrt.h> //hrt_abstime
+
 /**
  * Multicopter attitude control app start / stop handling function
  */
@@ -136,6 +140,7 @@ private:
 	int		_sensor_gyro_sub[MAX_GYRO_COUNT];	/**< gyro data subscription */
 	int		_sensor_correction_sub{-1};	/**< sensor thermal correction subscription */
 	int		_sensor_bias_sub{-1};		/**< sensor in-run bias correction subscription */
+	int     _adc_sub{-1};               //phase angle
 
 	unsigned _gyro_count{1};
 	int _selected_gyro{0};
@@ -160,6 +165,10 @@ private:
 	struct sensor_gyro_s			_sensor_gyro {};	/**< gyro data before thermal correctons and ekf bias estimates are applied */
 	struct sensor_correction_s		_sensor_correction {};	/**< sensor thermal corrections */
 	struct sensor_bias_s			_sensor_bias {};	/**< sensor in-run bias corrections */
+
+	struct adc_66v_raw_s            _adc66v{}; //phase angle
+	hrt_abstime _now{0};
+	float  _phaseAngel{0};
 
 	MultirotorMixer::saturation_status _saturation_status{};
 
@@ -234,7 +243,9 @@ private:
 		(ParamFloat<px4::params::SENS_BOARD_Y_OFF>) _board_offset_y,
 		(ParamFloat<px4::params::SENS_BOARD_Z_OFF>) _board_offset_z,
 
-		(ParamFloat<px4::params::VT_WV_YAWR_SCL>) _vtol_wv_yaw_rate_scale		/**< Scale value [0, 1] for yaw rate setpoint  */
+		(ParamFloat<px4::params::VT_WV_YAWR_SCL>) _vtol_wv_yaw_rate_scale,		/**< Scale value [0, 1] for yaw rate setpoint  */
+
+		(ParamInt<px4::params::CAI_ADC360_VAL>) _adc360_val_h
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
@@ -247,6 +258,9 @@ private:
 	matrix::Vector3f _mc_rate_max;		/**< attitude rate limits in stabilized modes */
 	matrix::Vector3f _auto_rate_max;	/**< attitude rate limits in auto modes */
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */
+
+
+	int   _adc360_val;
 
 };
 

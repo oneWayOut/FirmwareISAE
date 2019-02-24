@@ -149,6 +149,7 @@ struct Parameters {
 	int32_t air_cmodel;
 	float air_tube_length;
 	float air_tube_diameter_mm;
+	int32_t adc360_val;
 };
 
 struct ParameterHandles {
@@ -233,6 +234,8 @@ struct ParameterHandles {
 	param_t air_cmodel;
 	param_t air_tube_length;
 	param_t air_tube_diameter_mm;
+
+	param_t adc360_val_h;
 
 };
 

@@ -590,3 +590,16 @@ PARAM_DEFINE_FLOAT(MC_DTERM_CUTOFF, 30.f);
  */
 PARAM_DEFINE_INT32(MC_AIRMODE, 0);
 
+
+
+/**
+ * MAX Value of ADC of 360 degree of 5v
+ * 3103 = 5.0v/6.6v * 4096
+ *
+ * MAX Value of ADC of 360 degree
+ *
+ * @min 20
+ * @max 3104
+ * @group FAN Aircraft
+ */
+PARAM_DEFINE_INT32(CAI_ADC360_VAL, 3103);

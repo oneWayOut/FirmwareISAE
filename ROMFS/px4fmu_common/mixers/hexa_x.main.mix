@@ -1,4 +1,54 @@
 # Hexa X
+#R: 6x 10000 10000 10000 0
 
-R: 6x 10000 10000 10000 0
+
+
+fan aircraft mixer
+============================
+
+This mixer is user defined for fan aircraft Test.
+#Channel 1,2 are 400Hz; Channel 3,4,5,6 are 50HZ;
+All channels are 50Hz.
+channel 1 ----- throttle
+channel 2 ----- tail lock
+channel 3 ----- aileron1
+channel 4 ----- aileron2
+channel 5 ----- aileron3
+channel 6 ----- aileron4
+
+channel 1 connects to throttle
+--------------
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 2  10000  10000      0 -10000  10000
+
+channel 2 connects to tail lock
+--------------
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 3  10000  10000      0 -10000  10000
+
+channel 3 connects to aileron1
+--------------
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 0  10000  10000      0 -10000  10000
+
+channel 4 connects to aileron2
+--------------
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 1  10000  10000      0 -10000  10000
+
+channel 5 connects to aileron3
+--------------
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 0  10000  10000      0 -10000  10000
+
+channel 6 connects to aileron4
+--------------
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 1  10000  10000      0 -10000  10000
 

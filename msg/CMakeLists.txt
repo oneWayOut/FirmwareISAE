@@ -130,6 +130,7 @@ set(msg_files
 	vehicle_status_flags.msg
 	vtol_vehicle_status.msg
 	wind_estimate.msg
+	adc_66v_raw.msg  #added for adc6.6v instead of airspeed
 	)
 
 if(NOT EXTERNAL_MODULES_LOCATION STREQUAL "")

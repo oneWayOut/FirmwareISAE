@@ -8,7 +8,7 @@ set(config_module_list
 	#drivers/telemetry
 
 	drivers/batt_smbus
-	drivers/camera_trigger
+	#drivers/camera_trigger
 	drivers/gps
 	drivers/linux_gpio
 	drivers/pwm_out_sim
@@ -75,19 +75,19 @@ set(config_module_list
 	#
 	# Estimation modules
 	#
-	modules/attitude_estimator_q
+	#modules/attitude_estimator_q
 	modules/ekf2
-	modules/local_position_estimator
-	modules/position_estimator_inav
-	modules/wind_estimator
+	#modules/local_position_estimator
+	#modules/position_estimator_inav
+	#modules/wind_estimator
 
 	#
 	# Vehicle Control
 	#
 	modules/fw_att_control
 	modules/fw_pos_control_l1
-	modules/gnd_att_control
-	modules/gnd_pos_control
+	#modules/gnd_att_control
+	#modules/gnd_pos_control
 	modules/mc_att_control
 	modules/mc_pos_control
 	modules/vtol_att_control
@@ -107,12 +107,12 @@ set(config_module_list
 	#
 	# OBC challenge
 	#
-	examples/bottle_drop
+	#examples/bottle_drop
 
 	#
 	# Rover apps
 	#
-	examples/rover_steering_control
+	#examples/rover_steering_control
 
 	#
 	# HippoCampus example (AUV from TUHH)
@@ -130,15 +130,18 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/px4_simple_app
-	examples/px4_simple_app
+	#examples/px4_simple_app
+
+	# fan_aircraft
+	examples/fan_aircraft
 
 	# Tutorial code from
 	# https://px4.io/dev/debug_values
 	examples/px4_mavlink_debug
 
 	# Tutorial code from
-	# https://px4.io/dev/example_fixedwing_control
-	examples/fixedwing_control
+	# https://px4.io/dev/
+	#examples/fixedwing_control
 
 	# Template Module
 	templates/module
