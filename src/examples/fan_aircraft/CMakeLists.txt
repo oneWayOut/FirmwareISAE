@@ -5,6 +5,6 @@ px4_add_module(
 	MAIN fan_aircraft
 	STACK_MAIN 2000
 	SRCS
-		fan_aircraft.c
+		fan_aircraft.cpp
 	DEPENDS
 	)
