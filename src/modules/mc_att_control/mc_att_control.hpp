@@ -122,6 +122,8 @@ private:
 	 */
 	void		control_attitude_rates(float dt);
 
+
+
 	/**
 	 * Throttle PID attenuation.
 	 */
@@ -262,5 +264,6 @@ private:
 
 	int   _adc360_val;
 
+		void control_fancraft(void);
 };
 

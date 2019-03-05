@@ -782,64 +782,19 @@ MulticopterAttitudeControl::run()
 			if (_v_control_mode.flag_control_rates_enabled) {
 				control_attitude_rates(dt);
 
-				float rollCtrl  = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;  //roll
-				float pitchCtrl = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;  //pitch
 
-
-
-				//TODO  calculate the axis and the control section
-				if ((fabsf(rollCtrl)) <= 0.00001f && (fabsf(pitchCtrl)<=0.00001f))
-				{
-					//output nothing to aileron channel in each wing;
-					;;
-				}
-				else
-				{
-					float axisAngle = atan2f(rollCtrl, pitchCtrl); //TODO check sign of the control
-
-					axisAngle -= M_PI_4_F;  // - pi/4;  TODO check the sign and the angle value
-
-					//axisAngle is the axis in which we would put max control;
-					float secAngle = sqrtf(rollCtrl*rollCtrl + pitchCtrl*pitchCtrl);   //TODO, K value;
-
-					//4 ailerons cross the section, output to aileron
-					for (int i = 0; i < 4; ++i)
-					{
-						
-					}
-
-
-
-
-					//aileron1 is aligned with pixhawk
-					if (wrap_pi(_adc66v.angle - axisAngle) < secAngle ) //TODO check sign
-					{
-						_actuators.control[2] = 0;
-					}
-
-					/*
-					channel 1 ----- throttle
-					channel 2 ----- tail lock
-					channel 3 ----- aileron1
-					channel 4 ----- aileron2
-					channel 5 ----- aileron3
-					channel 6 ----- aileron4*/
-				}
+				control_fancraft();
 
 
 				/* publish actuator controls */
-				_actuators.control[0] = rollCtrl;
-				_actuators.control[1] = pitchCtrl;
-				_actuators.control[2] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
-				_actuators.control[3] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
-				_actuators.control[7] = _v_att_sp.landing_gear;
+				_actuators.control[7] = _v_att_sp.landing_gear;  //cai todo check delete
 				_actuators.timestamp = hrt_absolute_time();
 				_actuators.timestamp_sample = _sensor_gyro.timestamp;
 				
 
 				/* scale effort by battery status */
 				if (_bat_scale_en.get() && _battery_status.scale > 0.0f) {
-					for (int i = 0; i < 4; i++) {
+					for (int i = 0; i < 6; i++) {
 						_actuators.control[i] *= _battery_status.scale;
 					}
 				}
@@ -936,6 +891,71 @@ MulticopterAttitudeControl::run()
 	orb_unsubscribe(_sensor_bias_sub);
 }
 
+
+void MulticopterAttitudeControl::control_fancraft(void)
+{
+	/*
+	channel 1 ----- throttle
+	channel 2 ----- tail lock
+	channel 3 ----- aileron1
+	channel 4 ----- aileron2
+	channel 5 ----- aileron3
+	channel 6 ----- aileron4*/
+
+
+	//throttle
+	_actuators.control[0] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
+	//yaw control TODO check sign
+	_actuators.control[1] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
+
+
+	_actuators.control[2] = 0;  //aileron1
+	_actuators.control[3] = 0;  //aileron2
+	_actuators.control[4] = 0;  //aileron3
+	_actuators.control[5] = 0;  //aileron4
+
+
+	float rollCtrl  = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;  //roll
+	float pitchCtrl = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;  //pitch
+
+
+	//only control four ailerons if has roll or pitch control 
+	if ((fabsf(rollCtrl)) > 0.00001f || (fabsf(pitchCtrl)>0.00001f))
+	{
+
+		//axisAngle is the axis in which we would put max control;
+		float axisAngle;
+		//atan2(y,x) = atan(y/x): returns the angle θ between the ray to the point (x,y) and the positive x-axis
+		axisAngle = -atan2f(rollCtrl, pitchCtrl); //max force angle
+
+		axisAngle += M_PI_4_F;  //max force angle considering rotate Angular momentum
+
+
+		float secAngle = sqrtf(rollCtrl*rollCtrl + pitchCtrl*pitchCtrl);   //TODO, K factor value;
+
+
+		//4 ailerons cross the section, output to aileron
+		for (int i = 0; i < 4; ++i)
+		{
+			if (wrap_pi(_adc66v.angle - axisAngle + M_PI_2_F*(float)i) < secAngle ) //TODO check sign
+			{
+				//output postive max: aileron1 -> 2 -> 3 ->4
+				_actuators.control[i+2] = 1;
+
+				//output negtive max: aileron3 ->4 -> 1 -> 2
+				if (i<2)
+					_actuators.control[i+4] = -1;
+				else
+					_actuators.control[i] = -1;
+			}
+		}
+	}
+}
+
+
+
+
+
 int MulticopterAttitudeControl::task_spawn(int argc, char *argv[])
 {
 	_task_id = px4_task_spawn_cmd("mc_att_control",
@@ -967,3 +987,4 @@ int mc_att_control_main(int argc, char *argv[])
 {
 	return MulticopterAttitudeControl::main(argc, argv);
 }
+
