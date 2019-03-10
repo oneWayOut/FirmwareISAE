@@ -15,7 +15,7 @@
    output channels :  4 servos, 1 rotor for tail lock: yaw control, 1 rotor for thrust.
 
 
-   uorb top  //TODO check delete useless topic publish
+   uorb top  //TODO check delete useless topic publish; or change pub frequency
 
 
 

@@ -199,7 +199,8 @@ MulticopterAttitudeControl::parameters_updated()
 	_board_rotation = board_rotation_offset * _board_rotation;
 
 
-	_adc360_val = _adc360_val_h.get();
+	_adc360_val        = _adc360_val_h.get();
+	_maxctrl_sec_angle = _maxctrl_sec_angle_h.get();
 }
 
 void
@@ -905,7 +906,7 @@ void MulticopterAttitudeControl::control_fancraft(void)
 
 	//throttle
 	_actuators.control[0] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
-	//yaw control TODO check sign
+	//yaw control TODO check sign and stablity
 	_actuators.control[1] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
 
 
@@ -931,7 +932,11 @@ void MulticopterAttitudeControl::control_fancraft(void)
 		axisAngle += M_PI_4_F;  //max force angle considering rotate Angular momentum
 
 
-		float secAngle = sqrtf(rollCtrl*rollCtrl + pitchCtrl*pitchCtrl);   //TODO, K factor value;
+		rollCtrl       = math::constrain(rollCtrl, -1.0f, 1.0f);
+		pitchCtrl      = math::constrain(pitchCtrl, -1.0f, 1.0f);
+
+		float secAngle = sqrtf(rollCtrl*rollCtrl + pitchCtrl*pitchCtrl);  //control factor
+		secAngle       = secAngle*M_DEG_TO_RAD_F * _maxctrl_sec_angle/1.4141421f;   //control section angle in radius
 
 
 		//4 ailerons cross the section, output to aileron

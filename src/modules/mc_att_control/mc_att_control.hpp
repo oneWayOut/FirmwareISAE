@@ -247,7 +247,8 @@ private:
 
 		(ParamFloat<px4::params::VT_WV_YAWR_SCL>) _vtol_wv_yaw_rate_scale,		/**< Scale value [0, 1] for yaw rate setpoint  */
 
-		(ParamInt<px4::params::CAI_ADC360_VAL>) _adc360_val_h
+		(ParamInt<px4::params::CAI_ADC360_VAL>) _adc360_val_h,
+		(ParamInt<px4::params::MAXCTRL_SEC_ANG>) _maxctrl_sec_angle_h
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
@@ -263,7 +264,8 @@ private:
 
 
 	int   _adc360_val;
+	int   _maxctrl_sec_angle;   //control section angle in degree.
 
-		void control_fancraft(void);
+	void control_fancraft(void);
 };
 

@@ -603,3 +603,15 @@ PARAM_DEFINE_INT32(MC_AIRMODE, 0);
  * @group FAN Aircraft
  */
 PARAM_DEFINE_INT32(CAI_ADC360_VAL, 3103);
+
+
+
+/**
+ * MAX control section angle in degree
+ *
+ *
+ * @min 3
+ * @max 80
+ * @group FAN Aircraft
+ */
+PARAM_DEFINE_INT32(MAXCTRL_SEC_ANG, 50);
