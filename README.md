@@ -47,3 +47,35 @@ use ls /dev/tty* and watch what changes when unplugging / replugging the USB dev
 screen /dev/ttyUSB0 57600 8N1
  ~~~
 
+
+
+
+pwm rate -c 12345678 -r 100
+
+
+TEST  CBRK_USB_CHK for usb link arm
+
+
+[commander] Takeoff detected
+INFO  [commander] Landing detected
+INFO  [commander] Takeoff detected
+INFO  [commander] Landing detected
+INFO  [commander] Takeoff detected
+INFO  [commander] Landing detected
+
+yaw control has no effects, land???
+
+
+
+adc error 
+
+
+
+
+throttle output = 0~1  ????
+
+
+aileron 1, or -1 , no zero;
+
+
+
