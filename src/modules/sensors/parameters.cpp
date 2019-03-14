@@ -190,7 +190,7 @@ void initialize_parameter_handles(ParameterHandles &parameter_handles)
 	(void)param_find("SYS_CAL_TMIN");
 
 
-	parameter_handles.adc360_val_h = param_find("CAI_ADC360_VAL");  //cai added
+	parameter_handles.adc360_val_h = param_find("FAN_ADC360_VAL");  //cai added
 }
 
 int update_parameters(const ParameterHandles &parameter_handles, Parameters &parameters)

@@ -201,6 +201,7 @@ MulticopterAttitudeControl::parameters_updated()
 
 	_adc360_val        = _adc360_val_h.get();
 	_maxctrl_sec_angle = _maxctrl_sec_angle_h.get();
+	_ahead_angle      = _ahead_angle_h.get();
 }
 
 void
@@ -369,7 +370,7 @@ MulticopterAttitudeControl::sensor_bias_poll()
 			|| _adc66v.angle>M_PI_F*2.0f || _adc66v.angle <0)
 		{
 			//TODO constrain
-			PX4_ERR("adc error =%d, angle= %5.3f\n", _adc66v.raw_value, (double)_adc66v.angle);
+			PX4_ERR("adc error =%d, angle= %8.6f\n", _adc66v.raw_value, (double)_adc66v.angle);
 			_adc66v.raw_value = 0;
 			_adc66v.angle     = 0;
 		}
@@ -916,33 +917,37 @@ void MulticopterAttitudeControl::control_fancraft(void)
 	_actuators.control[5] = 0;  //aileron4
 
 
-	float rollCtrl  = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;  //roll
-	float pitchCtrl = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;  //pitch
+	//roll and pitch control
+	float temp1 = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;  //roll
+	float temp2 = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;  //pitch
 
 
 	//only control four ailerons if has roll or pitch control 
-	if ((fabsf(rollCtrl)) > 0.00001f || (fabsf(pitchCtrl)>0.00001f))
+	if ((fabsf(temp1)) > 0.00001f || (fabsf(temp2)>0.00001f))
 	{
 
 		//axisAngle is the axis in which we would put max control;
 		float axisAngle;
 		//atan2(y,x) = atan(y/x): returns the angle θ between the ray to the point (x,y) and the positive x-axis
-		axisAngle = -atan2f(rollCtrl, pitchCtrl); //max force angle
+		axisAngle = -atan2f(temp1, temp2); //max force angle
 
-		axisAngle += M_PI_4_F;  //max force angle considering rotate Angular momentum
+		axisAngle += M_DEG_TO_RAD_F * _ahead_angle;  //max force angle considering rotate Angular momentum
 
 
-		rollCtrl       = math::constrain(rollCtrl, -1.0f, 1.0f);
-		pitchCtrl      = math::constrain(pitchCtrl, -1.0f, 1.0f);
+		//constrain roll and pitch control to -1~1
+		temp1      = math::constrain(temp1, -1.0f, 1.0f);
+		temp2      = math::constrain(temp2, -1.0f, 1.0f);
 
-		float secAngle = sqrtf(rollCtrl*rollCtrl + pitchCtrl*pitchCtrl);  //control factor
+		float secAngle = sqrtf(temp1*temp1 + temp2*temp2);  //control factor
 		secAngle       = secAngle*M_DEG_TO_RAD_F * _maxctrl_sec_angle/1.4141421f;   //control section angle in radius
 
 
 		//4 ailerons cross the section, output to aileron
 		for (int i = 0; i < 4; ++i)
 		{
-			if (wrap_pi(_adc66v.angle - axisAngle + M_PI_2_F*(float)i) < secAngle ) //TODO check sign
+			//control section angle
+			temp1 = wrap_pi(_adc66v.angle - axisAngle + M_PI_2_F*(float)i);
+			if ( temp1 < secAngle && temp1>=0 ) //TODO check sign
 			{
 				//output postive max: aileron1 -> 2 -> 3 ->4
 				_actuators.control[i+2] = 1;

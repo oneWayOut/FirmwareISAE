@@ -615,3 +615,15 @@ PARAM_DEFINE_INT32(FAN_ADC360_VAL, 3103);
  * @group FAN Aircraft
  */
 PARAM_DEFINE_INT32(FAN_MAX_SEC_ANG, 50);
+
+
+
+/**
+ * ahead angle in degree considering Angular momentum
+ *
+ *
+ * @min 3
+ * @max 80
+ * @group FAN Aircraft
+ */
+PARAM_DEFINE_INT32(FAN_AHEAD_ANG, 45);
