@@ -249,7 +249,7 @@ private:
 
 		(ParamInt<px4::params::FAN_ADC360_VAL>) _adc360_val_h,
 		(ParamInt<px4::params::FAN_MAX_SEC_ANG>) _maxctrl_sec_angle_h,
-		(ParamInt<px4::params::FAN_MAX_SEC_ANG>) _ahead_angle_h
+		(ParamInt<px4::params::FAN_AHEAD_ANG>) _ahead_angle_h
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
