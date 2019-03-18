@@ -7,48 +7,64 @@ fan aircraft mixer
 ============================
 
 This mixer is user defined for fan aircraft Test.
-#Channel 1,2 are 400Hz; Channel 3,4,5,6 are 50HZ;
-All channels are 50Hz.
-channel 1 ----- throttle
-channel 2 ----- tail lock
-channel 3 ----- aileron1
-channel 4 ----- aileron2
-channel 5 ----- aileron3
-channel 6 ----- aileron4
+#Channel 1,2 are 400Hz; Channel 3,4,5,6 are 100HZ?
 
-channel 1 connects to throttle
+channel 1   ----- throttle
+channel 2   ----- tail lock
+channel 3,5 ----- aileron1
+channel 4   ----- aileron2
+channel 6,8 ----- aileron3
+channel 7   ----- aileron4
+
+channel 1 connects to throttle , from actuator index 3
+Two scalers total (output, thrust).
+This mixer generates a full-range output (-1 to 1) from an input in the (0 - 1)
+range.  Inputs below zero are treated as zero.
+--------------
+M: 1
+S: 0 3      0  20000 -10000 -10000  10000
+
+
+
+channel 2 connects to tail lock, from index 0
 --------------
 M: 1
 O:      10000  10000      0 -10000  10000
 S: 0 0  10000  10000      0 -10000  10000
 
-channel 2 connects to tail lock
+channel 3 connects to aileron1, from index 1
 --------------
 M: 1
 O:      10000  10000      0 -10000  10000
 S: 0 1  10000  10000      0 -10000  10000
 
-channel 3 connects to aileron1
+channel 4 connects to aileron2, from index 2
 --------------
 M: 1
 O:      10000  10000      0 -10000  10000
 S: 0 2  10000  10000      0 -10000  10000
 
-channel 4 connects to aileron2
+channel 5 connects to aileron1, from index 1
 --------------
 M: 1
 O:      10000  10000      0 -10000  10000
-S: 0 3  10000  10000      0 -10000  10000
+S: 0 1  10000  10000      0 -10000  10000
 
-channel 5 connects to aileron3
+channel 6 connects to aileron3, from index 4
 --------------
 M: 1
 O:      10000  10000      0 -10000  10000
 S: 0 4  10000  10000      0 -10000  10000
 
-channel 6 connects to aileron4
+channel 7 connects to aileron4, from index 5
 --------------
 M: 1
 O:      10000  10000      0 -10000  10000
 S: 0 5  10000  10000      0 -10000  10000
+
+channel 8 connects to aileron3, from index 4
+--------------
+M: 1
+O:      10000  10000      0 -10000  10000
+S: 0 4  10000  10000      0 -10000  10000
 

@@ -994,8 +994,7 @@ fi
 
 
 ## change pwm rate,  servos cannot torlerate 400Hz signal ; added by cai.
-pwm rate -c 12 -r 100
-pwm rate -c 345678 -r 50
+pwm rate -c 12345678 -r 100
 
 # There is no further script processing, so we can free some RAM
 # XXX potentially unset all script variables.

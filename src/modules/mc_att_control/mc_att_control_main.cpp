@@ -896,69 +896,86 @@ MulticopterAttitudeControl::run()
 
 void MulticopterAttitudeControl::control_fancraft(void)
 {
-	/*
-	channel 1 ----- throttle
-	channel 2 ----- tail lock
-	channel 3 ----- aileron1
-	channel 4 ----- aileron2
-	channel 5 ----- aileron3
-	channel 6 ----- aileron4*/
+	/* actuators index        meaning       range
+	 *           index 0 ---- tail lock     -1~1
+	 *           index 1 ---- aileron1      -1~1  
+	 *           index 2 ---- aileron2      -1~1
+	 *           index 3 ---- throttle       0~1
+	 *           index 4 ---- aileron3      -1~1
+	 *           index 5 ---- aileron4      -1~1
+	 *           				*/
 
 
-	//throttle
-	_actuators.control[0] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
-	//yaw control TODO check sign and stablity
-	_actuators.control[1] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
-
-
-	_actuators.control[2] = 0;  //aileron1
-	_actuators.control[3] = 0;  //aileron2
-	_actuators.control[4] = 0;  //aileron3
-	_actuators.control[5] = 0;  //aileron4
-
-
-	//roll and pitch control
-	float temp1 = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;  //roll
-	float temp2 = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;  //pitch
-
-
-	//only control four ailerons if has roll or pitch control 
-	if ((fabsf(temp1)) > 0.00001f || (fabsf(temp2)>0.00001f))
+	if (_v_control_mode.flag_armed)
 	{
-
-		//axisAngle is the axis in which we would put max control;
-		float axisAngle;
-		//atan2(y,x) = atan(y/x): returns the angle θ between the ray to the point (x,y) and the positive x-axis
-		axisAngle = -atan2f(temp1, temp2); //max force angle
-
-		axisAngle += M_DEG_TO_RAD_F * _ahead_angle;  //max force angle considering rotate Angular momentum
+		//index3 = throttle
+		_actuators.control[actuator_controls_s::INDEX_THROTTLE] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
+		//yaw control TODO check sign and stablity
+		_actuators.control[0] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
 
 
-		//constrain roll and pitch control to -1~1
-		temp1      = math::constrain(temp1, -1.0f, 1.0f);
-		temp2      = math::constrain(temp2, -1.0f, 1.0f);
-
-		float secAngle = sqrtf(temp1*temp1 + temp2*temp2);  //control factor
-		secAngle       = secAngle*M_DEG_TO_RAD_F * _maxctrl_sec_angle/1.4141421f;   //control section angle in radius
+		_actuators.control[1] = 0;  //aileron1
+		_actuators.control[2] = 0;  //aileron2
+		_actuators.control[4] = 0;  //aileron3
+		_actuators.control[5] = 0;  //aileron4
 
 
-		//4 ailerons cross the section, output to aileron
-		for (int i = 0; i < 4; ++i)
+		//roll and pitch control
+		float temp1 = (PX4_ISFINITE(_att_control(0))) ? _att_control(0) : 0.0f;  //roll
+		float temp2 = (PX4_ISFINITE(_att_control(1))) ? _att_control(1) : 0.0f;  //pitch
+
+
+		//only control four ailerons if has roll or pitch control 
+		if ((fabsf(temp1)) > 0.00001f || (fabsf(temp2)>0.00001f))
 		{
-			//control section angle
-			temp1 = wrap_pi(_adc66v.angle - axisAngle + M_PI_2_F*(float)i);
-			if ( temp1 < secAngle && temp1>=0 ) //TODO check sign
-			{
-				//output postive max: aileron1 -> 2 -> 3 ->4
-				_actuators.control[i+2] = 1;
 
-				//output negtive max: aileron3 ->4 -> 1 -> 2
-				if (i<2)
-					_actuators.control[i+4] = -1;
-				else
-					_actuators.control[i] = -1;
+			//axisAngle is the axis in which we would put max control;
+			float axisAngle;
+			//atan2(y,x) = atan(y/x): returns the angle θ between the ray to the point (x,y) and the positive x-axis
+			axisAngle = -atan2f(temp1, temp2); //max force angle
+
+			axisAngle += M_DEG_TO_RAD_F * _ahead_angle;  //max force angle considering rotate Angular momentum
+
+
+			//constrain roll and pitch control to -1~1
+			temp1      = math::constrain(temp1, -1.0f, 1.0f);
+			temp2      = math::constrain(temp2, -1.0f, 1.0f);
+
+			float secAngle = sqrtf(temp1*temp1 + temp2*temp2);  //control factor
+			secAngle       = secAngle*M_DEG_TO_RAD_F * _maxctrl_sec_angle/1.4141421f;   //control section angle in radius
+
+
+			//4 ailerons cross the section, output to aileron
+			for (int i = 0; i < 4; ++i)
+			{
+				//control section angle
+				temp1 = wrap_pi(_adc66v.angle - axisAngle + M_PI_2_F*(float)i);
+				if ( temp1 < secAngle && temp1>=0 ) //TODO check sign
+				{
+					//output postive max: aileron1 -> 2 -> _actuators.control[i] = -1;3 ->4  index: 1-2-4-5
+					//output negtive max: aileron3 -> 4 -> 1 ->2  index: 4-5-1-2 
+					if (i<2)
+					{
+						_actuators.control[i+1] = 1;
+						_actuators.control[i+4] = -1;
+					}
+					else
+					{
+						_actuators.control[i+2] = 1;
+						_actuators.control[i-1] = -1;
+					}
+				}
 			}
 		}
+	}
+	else //disarmed
+	{
+		_actuators.control[0] = -1; //yaw
+		_actuators.control[1] = 0;  //aileron1
+		_actuators.control[2] = 0;  //aileron2
+		_actuators.control[3] = 0;  //throttle
+		_actuators.control[4] = 0;  //aileron3
+		_actuators.control[5] = 0;  //aileron4
 	}
 }
 

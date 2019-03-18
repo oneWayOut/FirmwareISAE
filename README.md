@@ -1,19 +1,14 @@
 # funUAV
 
 ## TODO
- * buy wire.
- * Control Law
- * 锁尾控制
- * rcS 文件修改
+
  * remove or add modules in *nuttx_px4fmu-v2_default.cmake* 
    * add control law module
    * check magnetometer
    * disable distance_sensor
    * disable mc, fw, vtol;
 
-
-   output channels :  4 servos, 1 rotor for tail lock: yaw control, 1 rotor for thrust.
-
+ * change frequency of adc66v higher in sensors.cpp???? 
 
    uorb top  //TODO check delete useless topic publish; or change pub frequency
 
@@ -49,33 +44,16 @@ screen /dev/ttyUSB0 57600 8N1
 
 
 
-
-pwm rate -c 12345678 -r 100
-
-
 TEST  CBRK_USB_CHK for usb link arm
 
 
-[commander] Takeoff detected
-INFO  [commander] Landing detected
-INFO  [commander] Takeoff detected
-INFO  [commander] Landing detected
-INFO  [commander] Takeoff detected
-INFO  [commander] Landing detected
-
-yaw control has no effects, land???
 
 
+commander:
 
-adc error 
+state_machine_helper.cpp : L993, press armed switch;
 
+no print msg after press armed switch, but pwm output changed.
 
-
-
-throttle output = 0~1  ????
-
-
-aileron 1, or -1 , no zero;
-
-
-
+after give arm command to board:
+commander.cpp L805  arm/disarm component command
