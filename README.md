@@ -12,6 +12,8 @@
 
    uorb top  //TODO check delete useless topic publish; or change pub frequency
 
+ * check sign of mix throttle in aileron
+
 
 
 

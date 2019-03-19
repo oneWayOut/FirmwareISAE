@@ -202,6 +202,7 @@ MulticopterAttitudeControl::parameters_updated()
 	_adc360_val        = _adc360_val_h.get();
 	_maxctrl_sec_angle = _maxctrl_sec_angle_h.get();
 	_ahead_angle      = _ahead_angle_h.get();
+	_mix_thrust       = _mix_thrust_h.get();
 }
 
 void
@@ -967,6 +968,17 @@ void MulticopterAttitudeControl::control_fancraft(void)
 				}
 			}
 		}
+
+
+		//mix throttle in each aileron;
+		temp1 = math::constrain(_actuators.control[actuator_controls_s::INDEX_THROTTLE], 0.0f, 1.0f) - 0.6f;
+
+		temp1 *= _mix_thrust;
+
+		_actuators.control[1] += temp1;  //aileron1   TODO check sign
+		_actuators.control[2] += temp1;  //aileron2
+		_actuators.control[4] += temp1;  //aileron3
+		_actuators.control[5] += temp1;  //aileron4
 	}
 	else //disarmed
 	{

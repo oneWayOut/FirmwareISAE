@@ -627,3 +627,16 @@ PARAM_DEFINE_INT32(FAN_MAX_SEC_ANG, 50);
  * @group FAN Aircraft
  */
 PARAM_DEFINE_INT32(FAN_AHEAD_ANG, 45);
+
+
+
+
+/**
+ * mix throttle in aileron
+ *
+ *
+ * @min 0
+ * @max 2
+ * @group FAN Aircraft
+ */
+PARAM_DEFINE_FLOAT(FAN_MIX_THRUST, 1.0f);
