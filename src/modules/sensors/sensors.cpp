@@ -430,8 +430,8 @@ Sensors::adc_poll()
 
 	hrt_abstime t = hrt_absolute_time();
 
-	/* rate limit to 100 Hz */
-	if (t - _last_adc >= 10000) {
+	/* rate limit to 100 Hz,  CAI NOTE: reduce period to get quick response of rotation*/
+	/*if (t - _last_adc >= 10000)*/ {
 		/* make space for a maximum of twelve channels (to ensure reading all channels at once) */
 		px4_adc_msg_t buf_adc[PX4_MAX_ADC_CHANNELS];
 		/* read all channels available */
@@ -572,7 +572,7 @@ Sensors::adc_poll()
 
 #if BOARD_NUMBER_BRICKS > 0
 
-			if (_parameters.battery_source == 0) {
+			if (_parameters.battery_source == 0 && (t - _last_adc >= 10000)) {
 
 				for (int b = 0; b < BOARD_NUMBER_BRICKS; b++) {
 
