@@ -250,7 +250,9 @@ private:
 		(ParamInt<px4::params::FAN_ADC360_VAL>) _adc360_val_h,
 		(ParamInt<px4::params::FAN_MAX_SEC_ANG>) _maxctrl_sec_angle_h,
 		(ParamInt<px4::params::FAN_AHEAD_ANG>) _ahead_angle_h,
-		(ParamFloat<px4::params::FAN_MIX_THRUST>) _mix_thrust_h
+		(ParamFloat<px4::params::FAN_MIX_THRUST>) _mix_thrust_h,
+		(ParamInt<px4::params::FAN_CTRL_TIME>) _ctrl_time_h,
+		(ParamInt<px4::params::FAN_WAIT_TIME>) _wait_time_h
 	)
 
 	matrix::Vector3f _attitude_p;		/**< P gain for attitude control */
@@ -269,7 +271,9 @@ private:
 	int   _maxctrl_sec_angle;   //control section angle in degree.
 	int   _ahead_angle;
 	float _mix_thrust;
+	int   _ctrl_time;
+	int   _wait_time;
 
-	void control_fancraft(void);
+	void control_fancraft(const hrt_abstime * now);
 };
 

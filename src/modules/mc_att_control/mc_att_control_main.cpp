@@ -203,6 +203,8 @@ MulticopterAttitudeControl::parameters_updated()
 	_maxctrl_sec_angle = _maxctrl_sec_angle_h.get();
 	_ahead_angle      = _ahead_angle_h.get();
 	_mix_thrust       = _mix_thrust_h.get();
+	_ctrl_time        = _ctrl_time_h.get();
+	_wait_time        = _wait_time_h.get();
 }
 
 void
@@ -786,12 +788,14 @@ MulticopterAttitudeControl::run()
 				control_attitude_rates(dt);
 
 
-				control_fancraft();
+				_actuators.timestamp = hrt_absolute_time();
+
+				control_fancraft(&_actuators.timestamp);
 
 
 				/* publish actuator controls */
 				_actuators.control[7] = _v_att_sp.landing_gear;  //cai todo check delete
-				_actuators.timestamp = hrt_absolute_time();
+				
 				_actuators.timestamp_sample = _sensor_gyro.timestamp;
 				
 
@@ -895,7 +899,7 @@ MulticopterAttitudeControl::run()
 }
 
 
-void MulticopterAttitudeControl::control_fancraft(void)
+void MulticopterAttitudeControl::control_fancraft(const hrt_abstime * now)
 {
 	/* actuators index        meaning       range
 	 *           index 0 ---- tail lock     -1~1
@@ -907,14 +911,74 @@ void MulticopterAttitudeControl::control_fancraft(void)
 	 *           				*/
 
 
-	if (_v_control_mode.flag_armed)
+	static hrt_abstime startControlT = 0;
+	static hrt_abstime startWaitT    = 0;
+
+	static bool waitFlag = true;   // in wait mode period
+
+
+
+	//not armed
+	if (!_v_control_mode.flag_armed)
 	{
-		//index3 = throttle
-		_actuators.control[actuator_controls_s::INDEX_THROTTLE] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
-		//yaw control TODO check sign and stablity
-		_actuators.control[0] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
+		_actuators.control[0] = -1; //yaw
+		_actuators.control[1] = 0;  //aileron1
+		_actuators.control[2] = 0;  //aileron2
+		_actuators.control[3] = 0;  //throttle
+		_actuators.control[4] = 0;  //aileron3
+		_actuators.control[5] = 0;  //aileron4
+
+		return ;
+	}
 
 
+
+	//armed
+	
+	if (waitFlag)  // in wait mode;
+	{
+		if (*now - startWaitT >=(hrt_abstime)_wait_time* 1000)  //NOTE or 1000000 us??? tocheck
+		{
+			//switch to control mode period
+			waitFlag = false;
+
+
+			//reset control time
+			startControlT = *now;
+		}
+	}
+	else  //in control mode
+	{
+
+		matrix::Dcmf R = matrix::Quatf(_v_att.q);
+
+		matrix::Eulerf euler_angles(R);
+
+		if (*now - startControlT >= (hrt_abstime)_ctrl_time* 1000 ||
+			(fabsf(euler_angles.phi()- _v_att_sp.roll_body) < 3.0f *M_DEG_TO_RAD_F &&
+			 fabsf(euler_angles.theta()- _v_att_sp.pitch_body) < 3.0f*M_DEG_TO_RAD_F))
+		{
+			//switch to wait mode;
+			waitFlag = true;
+
+			//reset wait time
+			startWaitT = *now;
+		}
+	}
+
+
+
+	/**
+	 * always control throttle and yaw;
+	 */
+
+	//index3 = throttle
+	_actuators.control[actuator_controls_s::INDEX_THROTTLE] = (PX4_ISFINITE(_thrust_sp)) ? _thrust_sp : 0.0f;
+	//yaw control TODO check sign and stablity
+	_actuators.control[0] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
+
+	if (!waitFlag)
+	{
 		_actuators.control[1] = 0;  //aileron1
 		_actuators.control[2] = 0;  //aileron2
 		_actuators.control[4] = 0;  //aileron3
@@ -980,15 +1044,7 @@ void MulticopterAttitudeControl::control_fancraft(void)
 		_actuators.control[4] += temp1;  //aileron3
 		_actuators.control[5] += temp1;  //aileron4
 	}
-	else //disarmed
-	{
-		_actuators.control[0] = -1; //yaw
-		_actuators.control[1] = 0;  //aileron1
-		_actuators.control[2] = 0;  //aileron2
-		_actuators.control[3] = 0;  //throttle
-		_actuators.control[4] = 0;  //aileron3
-		_actuators.control[5] = 0;  //aileron4
-	}
+		
 }
 
 

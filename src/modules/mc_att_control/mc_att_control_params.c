@@ -640,3 +640,27 @@ PARAM_DEFINE_INT32(FAN_AHEAD_ANG, 45);
  * @group FAN Aircraft
  */
 PARAM_DEFINE_FLOAT(FAN_MIX_THRUST, 1.0f);
+
+
+
+/**
+ * control time duration in mili seconds
+ *
+ *
+ * @min 1000
+ * @max 2000
+ * @group FAN Aircraft
+ */
+PARAM_DEFINE_INT32(FAN_CTRL_TIME, 1000);
+
+
+/**
+ * wait time duration in mili seconds
+ *
+ *
+ * @min 1000
+ * @max 2000
+ * @group FAN Aircraft
+ */
+PARAM_DEFINE_INT32(FAN_WAIT_TIME, 2000);
+
