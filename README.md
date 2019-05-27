@@ -2,6 +2,10 @@
 
 ## TODO
 
+
+ * hrt_elapsed_time; 参数的添加　0.5~1s;
+  
+
  * remove or add modules in *nuttx_px4fmu-v2_default.cmake* 
    * add control law module
    * check magnetometer

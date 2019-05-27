@@ -899,6 +899,8 @@ MulticopterAttitudeControl::run()
 }
 
 
+#define _DEBUG_FLAG_ 1
+
 void MulticopterAttitudeControl::control_fancraft(const hrt_abstime * now)
 {
 	/* actuators index        meaning       range
@@ -914,7 +916,8 @@ void MulticopterAttitudeControl::control_fancraft(const hrt_abstime * now)
 	static hrt_abstime startControlT = 0;
 	static hrt_abstime startWaitT    = 0;
 
-	static bool waitFlag = true;   // in wait mode period
+	static unsigned short last_FANMODE= 0;
+	static unsigned short FAN_MODE = 0;   // 0=wait, 1= check, 2= control;
 
 
 
@@ -935,37 +938,54 @@ void MulticopterAttitudeControl::control_fancraft(const hrt_abstime * now)
 
 	//armed
 	
-	if (waitFlag)  // in wait mode;
+	matrix::Dcmf R = matrix::Quatf(_v_att.q);
+
+	matrix::Eulerf euler_angles(R);
+
+	float tempAngle = (euler_angles.phi()- _v_att_sp.roll_body)* (euler_angles.phi()- _v_att_sp.roll_body);
+	tempAngle += (euler_angles.theta()- _v_att_sp.pitch_body)*(euler_angles.theta()- _v_att_sp.pitch_body);
+	tempAngle = sqrtf(tempAngle);
+	switch(FAN_MODE)
 	{
+	case 0: //switch to check mode
 		if (*now - startWaitT >=(hrt_abstime)_wait_time* 1000)  //NOTE or 1000000 us??? tocheck
 		{
-			//switch to control mode period
-			waitFlag = false;
-
-
-			//reset control time
-			startControlT = *now;
+			FAN_MODE = 1;
+#if _DEBUG_FLAG_
+			printf("switch 2 check\n");
+#endif
 		}
-	}
-	else  //in control mode
-	{
-
-		matrix::Dcmf R = matrix::Quatf(_v_att.q);
-
-		matrix::Eulerf euler_angles(R);
-
-		if (*now - startControlT >= (hrt_abstime)_ctrl_time* 1000 ||
-			(fabsf(euler_angles.phi()- _v_att_sp.roll_body) < 3.0f *M_DEG_TO_RAD_F &&
-			 fabsf(euler_angles.theta()- _v_att_sp.pitch_body) < 3.0f*M_DEG_TO_RAD_F))
+		break;
+	case 1: //switch to control mode
+		if (tempAngle > 2.0f *M_DEG_TO_RAD_F) //begin control
 		{
-			//switch to wait mode;
-			waitFlag = true;
+			FAN_MODE = 2;
+			startControlT = *now;
 
-			//reset wait time
-			startWaitT = *now;
+#if _DEBUG_FLAG_
+			printf("switch 2 control\n");
+			printf("r,p   = %5.3f, %5.3f\n"  ,(double)euler_angles.phi()*57.296, (double)euler_angles.theta()*57.296);
+			printf("r,p sp= %5.3f, %5.3f\n"  ,(double)_v_att_sp.roll_body*57.296, (double)_v_att_sp.pitch_body*57.296);
+#endif
 		}
-	}
+		break;
+	case 2: //switch to wait mode
+		if (*now - startControlT >= (hrt_abstime)_ctrl_time* 1000 ||
+			tempAngle < 2.0f*M_DEG_TO_RAD_F)
+		{
+			FAN_MODE = 0;
+			startWaitT = *now;
+#if _DEBUG_FLAG_
+			printf("switch 2 wait\n");
+#endif
+		}
 
+		break;
+	default:
+		FAN_MODE = 0;
+		break;
+	}
+	
 
 
 	/**
@@ -977,8 +997,9 @@ void MulticopterAttitudeControl::control_fancraft(const hrt_abstime * now)
 	//yaw control TODO check sign and stablity
 	_actuators.control[0] = (PX4_ISFINITE(_att_control(2))) ? _att_control(2) : 0.0f;  //yaw
 
-	if (!waitFlag)
+	if (FAN_MODE ==2 &&  last_FANMODE!=2)
 	{
+			/* code */
 		_actuators.control[1] = 0;  //aileron1
 		_actuators.control[2] = 0;  //aileron2
 		_actuators.control[4] = 0;  //aileron3
@@ -993,7 +1014,6 @@ void MulticopterAttitudeControl::control_fancraft(const hrt_abstime * now)
 		//only control four ailerons if has roll or pitch control 
 		if ((fabsf(temp1)) > 0.00001f || (fabsf(temp2)>0.00001f))
 		{
-
 			//axisAngle is the axis in which we would put max control;
 			float axisAngle;
 			//atan2(y,x) = atan(y/x): returns the angle θ between the ray to the point (x,y) and the positive x-axis
@@ -1044,7 +1064,19 @@ void MulticopterAttitudeControl::control_fancraft(const hrt_abstime * now)
 		_actuators.control[4] += temp1;  //aileron3
 		_actuators.control[5] += temp1;  //aileron4
 	}
-		
+	else if(FAN_MODE!=2)
+	{
+		_actuators.control[1] = 0;  //aileron1
+		_actuators.control[2] = 0;  //aileron2
+		_actuators.control[4] = 0;  //aileron3
+		_actuators.control[5] = 0;  //aileron4
+	}
+	else
+	{
+		;
+	}
+
+	last_FANMODE = FAN_MODE;
 }
 
 
