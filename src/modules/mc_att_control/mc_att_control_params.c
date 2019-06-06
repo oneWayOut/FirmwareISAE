@@ -575,7 +575,7 @@ PARAM_DEFINE_FLOAT(MC_TPA_RATE_D, 0.0f);
  * @increment 10
  * @group Multicopter Attitude Control
  */
-PARAM_DEFINE_FLOAT(MC_DTERM_CUTOFF, 30.f);
+PARAM_DEFINE_FLOAT(MC_DTERM_CUTOFF, 1.0f);
 
 /**
  * Multicopter air-mode

@@ -163,9 +163,9 @@ MulticopterAttitudeControl::parameters_updated()
 	_rate_ff(2) = _yaw_rate_ff.get();
 
 	if (fabsf(_lp_filters_d[0].get_cutoff_freq() - _d_term_cutoff_freq.get()) > 0.01f) {
-		_lp_filters_d[0].set_cutoff_frequency(_loop_update_rate_hz, 2);  //cai changed to 2HZ
-		_lp_filters_d[1].set_cutoff_frequency(_loop_update_rate_hz, 2);  //cai changed to 2HZ
-		_lp_filters_d[2].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());
+		_lp_filters_d[0].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());  //cai changed to 2HZ
+		_lp_filters_d[1].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());  //cai changed to 2HZ
+		_lp_filters_d[2].set_cutoff_frequency(_loop_update_rate_hz, 30);
 		_lp_filters_d[0].reset(_rates_prev(0));
 		_lp_filters_d[1].reset(_rates_prev(1));
 		_lp_filters_d[2].reset(_rates_prev(2));
@@ -869,9 +869,9 @@ MulticopterAttitudeControl::run()
 					_loop_update_rate_hz = _loop_update_rate_hz * 0.5f + loop_update_rate * 0.5f;
 					dt_accumulator = 0;
 					loop_counter = 0;
-					_lp_filters_d[0].set_cutoff_frequency(_loop_update_rate_hz, 2); //cai changed to 2Hz
-					_lp_filters_d[1].set_cutoff_frequency(_loop_update_rate_hz, 2); //cai changed to 2Hz
-					_lp_filters_d[2].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get());
+					_lp_filters_d[0].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get()); //cai changed to 2Hz
+					_lp_filters_d[1].set_cutoff_frequency(_loop_update_rate_hz, _d_term_cutoff_freq.get()); //cai changed to 2Hz
+					_lp_filters_d[2].set_cutoff_frequency(_loop_update_rate_hz, 30);
 				}
 			}
 
