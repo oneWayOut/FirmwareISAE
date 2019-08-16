@@ -136,3 +136,8 @@ then
 	param set SYS_COMPANION 0
 fi
 
+
+# cai added
+echo "CAI custom telem 2 mavlink started"
+mavlink start -r 1200  -d /dev/ttyS2 -b 57600 -m onboard -x
+
