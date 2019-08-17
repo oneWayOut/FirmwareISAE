@@ -2605,6 +2605,23 @@ MavlinkReceiver::receive_thread(void *arg)
 					const unsigned sleeptime = character_count * 1000000 / (_mavlink->get_baudrate() / 10);
 					px4_usleep(sleeptime);
 				}
+
+				if (!strcmp(_mavlink->_device_name, "/dev/ttyS2"))
+				{
+
+					if (nread >0)
+					{
+						PX4_INFO("cai read ttyS2: ");
+						for (ssize_t i = 0; i < nread; ++i)
+						{
+
+							printf("%c", buf[i]);
+							/* code */
+						}
+						printf("\n");
+					}
+					continue;
+				}
 			}
 
 #if defined(CONFIG_NET) || defined(__PX4_POSIX)
