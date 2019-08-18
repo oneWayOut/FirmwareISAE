@@ -2606,12 +2606,15 @@ MavlinkReceiver::receive_thread(void *arg)
 					px4_usleep(sleeptime);
 				}
 
+				static unsigned int myCounter = 0;
+
+				//if(0)
 				if (!strcmp(_mavlink->_device_name, "/dev/ttyS2"))
 				{
-
 					if (nread >0)
 					{
 						PX4_INFO("cai read ttyS2: ");
+						printf("%d :", nread);
 						for (ssize_t i = 0; i < nread; ++i)
 						{
 
@@ -2620,6 +2623,17 @@ MavlinkReceiver::receive_thread(void *arg)
 						}
 						printf("\n");
 					}
+
+					if (myCounter%10 == 0)
+					{
+						buf[0] = 'H';
+						::write(fds[0].fd, buf, 1);
+					}
+
+
+					myCounter++;
+
+
 					continue;
 				}
 			}

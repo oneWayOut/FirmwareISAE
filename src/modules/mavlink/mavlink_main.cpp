@@ -702,7 +702,6 @@ Mavlink::mavlink_open_uart(int baud, const char *uart_name, bool force_flow_cont
 	if (enable_flow_control(force_flow_control ? FLOW_CONTROL_ON : FLOW_CONTROL_AUTO)) {
 		PX4_WARN("hardware flow control not supported");
 	}
-
 	return _uart_fd;
 }
 
@@ -719,6 +718,7 @@ Mavlink::enable_flow_control(enum FLOW_CONTROL_MODE mode)
 
 	int ret = tcgetattr(_uart_fd, &uart_config);
 
+	mode = FLOW_CONTROL_OFF;
 	if (mode) {
 		uart_config.c_cflag |= CRTSCTS;
 
@@ -898,7 +898,19 @@ Mavlink::send_bytes(const uint8_t *buf, unsigned packet_len)
 
 	/* send message to UART */
 	if (get_protocol() == SERIAL) {
-		ret = ::write(_uart_fd, buf, packet_len);
+		//ret = ::write(_uart_fd, buf, packet_len);
+		#if 0
+		if (!strcmp(_device_name, "/dev/ttyS2"))
+		{
+			//PX4_INFO("CAI send extra info");
+			ret = packet_len;
+		}
+		else
+		#endif
+		{
+			ret = ::write(_uart_fd, buf, packet_len);
+		}
+		
 	}
 
 #if defined(CONFIG_NET) || defined(__PX4_POSIX)

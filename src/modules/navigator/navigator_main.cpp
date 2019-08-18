@@ -47,6 +47,7 @@
 
 #include <float.h>
 #include <sys/stat.h>
+#include <termios.h>
 
 #include <dataman/dataman.h>
 #include <drivers/drv_hrt.h>
@@ -228,11 +229,52 @@ Navigator::run()
 	params_update();
 
 	/* wakeup source(s) */
-	px4_pollfd_struct_t fds[1] = {};
+	px4_pollfd_struct_t fds[2] = {};
 
 	/* Setup of loop */
 	fds[0].fd = _local_pos_sub;
 	fds[0].events = POLLIN;
+
+#if 0
+
+
+
+	fds[1].fd = open("/dev/ttyS2", O_RDWR | O_NOCTTY);  //file name may be different
+	fds[1].events = POLLIN;
+
+
+	if(fds[1].fd<=0) {
+		PX4_ERR("can not open ttyS2!");
+	}
+
+	struct termios uart_config;
+	int termios_state;
+
+	/* Initialize the uart config */
+	if ((termios_state = tcgetattr(fds[1].fd, &uart_config)) < 0) {
+		PX4_ERR("ERR GET CONF %s: %d\n", "/dev/ttyS2", termios_state);
+		close(fds[1].fd);
+		return ;
+	}
+
+	/* Clear ONLCR flag (which appends a CR for every LF) */
+	uart_config.c_oflag &= ~ONLCR;
+
+
+	/* Set baud rate */
+	if (cfsetispeed(&uart_config, B57600) < 0 || cfsetospeed(&uart_config, B57600) < 0) {
+		PX4_ERR("ERR SET BAUD %s: %d\n", "/dev/ttyS2", termios_state);
+		close(fds[1].fd);
+		return ;
+	}
+
+	if ((termios_state = tcsetattr(fds[1].fd, TCSANOW, &uart_config)) < 0) {
+		PX4_WARN("ERR SET CONF %s\n", "/dev/ttyS2");
+		close(fds[1].fd);
+		return ;
+	}
+#endif
+
 
 	/* rate-limit position subscription to 20 Hz / 50 ms */
 	orb_set_interval(_local_pos_sub, 50);
@@ -242,7 +284,7 @@ Navigator::run()
 	while (!should_exit()) {
 
 		/* wait for up to 1000ms for data */
-		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 1000);
+		int pret = px4_poll(&fds[0], 1, 1000);
 
 		if (pret == 0) {
 			/* Let the loop run anyway, don't do `continue` here. */
@@ -259,6 +301,41 @@ Navigator::run()
 				local_position_update();
 			}
 		}
+
+#if 0
+		static unsigned int myCounter = 0;
+		char buf[64];
+
+		//if (myCounter%10 == 0)
+		if (fds[1].revents & POLLIN)
+		{
+
+
+			pret = read(fds[1].fd, buf, 64);
+
+			if (pret>0)
+			{
+				PX4_INFO("cai read ttyS2: ");
+				printf("%d :", pret);
+				for (ssize_t i = 0; i < pret; ++i)
+				{
+					printf("%c", buf[i]);
+				}
+				printf("\n");
+
+
+			}
+		}
+
+		if (myCounter%10 == 0)
+		{
+			buf[0] = 'H';
+			write(fds[1].fd, buf, 1);
+		}
+
+		myCounter++;
+#endif
+
 
 		perf_begin(_loop_perf);
 
