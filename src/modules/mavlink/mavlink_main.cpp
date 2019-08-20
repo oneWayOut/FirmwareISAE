@@ -899,7 +899,7 @@ Mavlink::send_bytes(const uint8_t *buf, unsigned packet_len)
 	/* send message to UART */
 	if (get_protocol() == SERIAL) {
 		//ret = ::write(_uart_fd, buf, packet_len);
-		#if 0
+		#if 1
 		if (!strcmp(_device_name, "/dev/ttyS2"))
 		{
 			//PX4_INFO("CAI send extra info");

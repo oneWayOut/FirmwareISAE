@@ -2591,7 +2591,49 @@ MavlinkReceiver::receive_thread(void *arg)
 	hrt_abstime last_send_update = 0;
 
 	while (!_mavlink->_task_should_exit) {
-		if (poll(&fds[0], 1, timeout) > 0) {
+
+		int temp = poll(&fds[0], 1, 10);
+
+		if (!strcmp(_mavlink->_device_name, "/dev/ttyS2"))
+		{
+			static unsigned int myCounter = 0;
+
+			if (temp>=0)
+			{
+				nread = ::read(fds[0].fd, buf, sizeof(buf));
+
+				if (nread >0)
+				{
+					PX4_INFO("cai read ttyS2: ");
+					printf("%d :", nread);
+					for (ssize_t i = 0; i < nread; ++i)
+					{
+
+						printf("%c", buf[i]);
+						/* code */
+					}
+					printf("\n");
+				}
+			}
+			
+
+			//if (myCounter%3 == 0)
+			{
+				buf[0] = 'H';
+				nread = ::write(fds[0].fd, buf, 1);
+				printf("%d, %d \n:", temp, myCounter);
+
+			}
+
+
+			myCounter++;
+
+
+			continue;
+
+		}
+		
+		else if (temp > 0) {
 			if (_mavlink->get_protocol() == SERIAL) {
 
 				/*
@@ -2604,39 +2646,11 @@ MavlinkReceiver::receive_thread(void *arg)
 				if ((nread = ::read(fds[0].fd, buf, sizeof(buf))) < (ssize_t)character_count) {
 					const unsigned sleeptime = character_count * 1000000 / (_mavlink->get_baudrate() / 10);
 					px4_usleep(sleeptime);
-				}
-
-				static unsigned int myCounter = 0;
-
-				//if(0)
-				if (!strcmp(_mavlink->_device_name, "/dev/ttyS2"))
-				{
-					if (nread >0)
-					{
-						PX4_INFO("cai read ttyS2: ");
-						printf("%d :", nread);
-						for (ssize_t i = 0; i < nread; ++i)
-						{
-
-							printf("%c", buf[i]);
-							/* code */
-						}
-						printf("\n");
-					}
-
-					if (myCounter%10 == 0)
-					{
-						buf[0] = 'H';
-						::write(fds[0].fd, buf, 1);
-					}
-
-
-					myCounter++;
-
-
-					continue;
+					;
 				}
 			}
+
+				
 
 #if defined(CONFIG_NET) || defined(__PX4_POSIX)
 
