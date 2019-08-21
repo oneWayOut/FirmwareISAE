@@ -235,7 +235,7 @@ Navigator::run()
 	fds[0].fd = _local_pos_sub;
 	fds[0].events = POLLIN;
 
-#if 0
+#if 1
 
 
 
@@ -268,6 +268,8 @@ Navigator::run()
 		return ;
 	}
 
+	uart_config.c_cflag &= ~CRTSCTS;
+
 	if ((termios_state = tcsetattr(fds[1].fd, TCSANOW, &uart_config)) < 0) {
 		PX4_WARN("ERR SET CONF %s\n", "/dev/ttyS2");
 		close(fds[1].fd);
@@ -284,7 +286,7 @@ Navigator::run()
 	while (!should_exit()) {
 
 		/* wait for up to 1000ms for data */
-		int pret = px4_poll(&fds[0], 1, 1000);
+		int pret = px4_poll(&fds[0], 2, 10);
 
 		if (pret == 0) {
 			/* Let the loop run anyway, don't do `continue` here. */
@@ -302,12 +304,12 @@ Navigator::run()
 			}
 		}
 
-#if 0
+#if 1
 		static unsigned int myCounter = 0;
 		char buf[64];
 
 		//if (myCounter%10 == 0)
-		if (fds[1].revents & POLLIN)
+		//if (fds[1].events & POLLIN)
 		{
 
 
@@ -321,17 +323,18 @@ Navigator::run()
 				{
 					printf("%c", buf[i]);
 				}
-				printf("\n");
-
-
+				printf(" evt= %d, %d\n", fds[1].events, fds[1].revents);
 			}
 		}
 
 		if (myCounter%10 == 0)
 		{
 			buf[0] = 'H';
-			write(fds[1].fd, buf, 1);
+			pret = write(fds[1].fd, buf, 1);
+			printf("pret = %d;", pret);
 		}
+
+		printf("cnt=%d\n", myCounter);
 
 		myCounter++;
 #endif
