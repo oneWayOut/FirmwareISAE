@@ -4,6 +4,7 @@
 	1. 屏蔽mavlink_main.cpp中send_bytes再试试;
 	2. 为何貌似缺失一些数据帧;
 	3. 改在navigator.cpp中继续测试；
+	4. 测试poll函数是否存在问题??
 
 
 ## NOTE:

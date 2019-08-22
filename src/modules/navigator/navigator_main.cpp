@@ -286,7 +286,8 @@ Navigator::run()
 	while (!should_exit()) {
 
 		/* wait for up to 1000ms for data */
-		int pret = px4_poll(&fds[0], 2, 10);
+		//int pret = px4_poll(&fds[0], 2, 10);
+		int pret = 0;
 
 		if (pret == 0) {
 			/* Let the loop run anyway, don't do `continue` here. */
@@ -337,6 +338,10 @@ Navigator::run()
 		printf("cnt=%d\n", myCounter);
 
 		myCounter++;
+
+		px4_usleep(1000000);
+
+		continue;
 #endif
 
 
