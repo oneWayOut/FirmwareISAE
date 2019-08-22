@@ -47,7 +47,6 @@
 
 #include <float.h>
 #include <sys/stat.h>
-#include <termios.h>
 
 #include <dataman/dataman.h>
 #include <drivers/drv_hrt.h>
@@ -236,9 +235,6 @@ Navigator::run()
 	fds[0].events = POLLIN;
 
 #if 1
-
-
-
 	fds[1].fd = open("/dev/ttyS2", O_RDWR | O_NOCTTY);  //file name may be different
 	fds[1].events = POLLIN;
 
@@ -275,6 +271,8 @@ Navigator::run()
 		close(fds[1].fd);
 		return ;
 	}
+
+	printf("cai init ttyS2 OK\n");
 #endif
 
 
@@ -286,8 +284,7 @@ Navigator::run()
 	while (!should_exit()) {
 
 		/* wait for up to 1000ms for data */
-		//int pret = px4_poll(&fds[0], 2, 10);
-		int pret = 0;
+		int pret = px4_poll(&fds[0], 2, 1000);
 
 		if (pret == 0) {
 			/* Let the loop run anyway, don't do `continue` here. */
@@ -309,11 +306,9 @@ Navigator::run()
 		static unsigned int myCounter = 0;
 		char buf[64];
 
-		//if (myCounter%10 == 0)
-		//if (fds[1].events & POLLIN)
+		if ((fds[1].revents & POLLIN))
 		{
-
-
+			//block call
 			pret = read(fds[1].fd, buf, 64);
 
 			if (pret>0)
@@ -324,7 +319,6 @@ Navigator::run()
 				{
 					printf("%c", buf[i]);
 				}
-				printf(" evt= %d, %d\n", fds[1].events, fds[1].revents);
 			}
 		}
 
@@ -333,17 +327,11 @@ Navigator::run()
 			buf[0] = 'H';
 			pret = write(fds[1].fd, buf, 1);
 			printf("pret = %d;", pret);
+			printf("cnt=%d\n", myCounter);
 		}
 
-		printf("cnt=%d\n", myCounter);
-
 		myCounter++;
-
-		px4_usleep(1000000);
-
-		continue;
 #endif
-
 
 		perf_begin(_loop_perf);
 
