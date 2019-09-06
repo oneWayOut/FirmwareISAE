@@ -1,8 +1,16 @@
+## roadmap
+ 1. create a map for simulation and test: 
+ 2. begin and stop scout command; get target id;
+ 3. drop command;
+
+
 
 #custum project 　with companion to drop bag
 
 make:
 make px4_fmu-v2_default
+
+make px4_sitl gazebo_plane
 
 
 

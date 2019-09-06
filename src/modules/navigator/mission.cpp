@@ -203,6 +203,8 @@ Mission::on_active()
 			// do not set the closest mission item in the normal mission mode
 			if (_mission_execution_mode != mission_result_s::MISSION_EXECUTION_MODE_NORMAL) {
 				_current_mission_index = index_closest_mission_item();
+
+				printf("cai ms index = %d\n", _current_mission_index);
 			}
 
 			_mission_waypoints_changed = false;
@@ -210,6 +212,7 @@ Mission::on_active()
 
 		_execution_mode_changed = false;
 		set_mission_items();
+		printf("cai ms index1 = %d\n", _current_mission_index);
 	}
 
 	/* lets check if we reached the current mission item */
@@ -218,12 +221,29 @@ Mission::on_active()
 		   there is no need to report that we reached it because we didn't. */
 		if (_work_item_type != WORK_ITEM_TYPE_TAKEOFF) {
 			set_mission_item_reached();
+			printf("cai ms index2 = %d\n", _current_mission_index);
 		}
 
 		if (_mission_item.autocontinue) {
 			/* switch to next waypoint if 'autocontinue' flag set */
 			advance_mission();
 			set_mission_items();
+			printf("cai ms index3 = %d\n", _current_mission_index);
+
+
+			if (_current_mission_index == BEGIN_TGT_R1)
+			{
+				printf("TODO send begin scout cmd!\n");
+			}
+			else if (_current_mission_index == BEGIN_TGT_R1 +3)
+			{
+				printf("TODO send stop scout cmd!\n");
+			}
+			else if (_current_mission_index == BEGIN_TGT_R2)
+			{
+				printf("TODO add special cmmd to triple set; ");
+				printf("to indicate att module to drop cmd!\n");
+			}
 		}
 
 	} else if (_mission_type != MISSION_TYPE_NONE && _param_mis_altmode.get() == MISSION_ALTMODE_FOH) {

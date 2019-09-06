@@ -80,6 +80,11 @@
 #define NAVIGATOR_MODE_ARRAY_SIZE 11
 
 
+//target point index in round1 and round2;
+#define BEGIN_TGT_R1  3
+#define BEGIN_TGT_R2  10
+
+
 class Navigator : public ModuleBase<Navigator>, public ModuleParams
 {
 public:
@@ -344,6 +349,8 @@ private:
 	uORB::Subscription<position_controller_status_s>	_position_controller_status_sub{ORB_ID(position_controller_status)};
 
 	uint8_t						_previous_nav_state{}; /**< nav_state of the previous iteration*/
+
+	uint8_t                                         _tgtId;  //1,2 or 3;
 
 	// Publications
 	geofence_result_s				_geofence_result{};

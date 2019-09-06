@@ -66,6 +66,13 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/uORB.h>
 
+
+
+
+#define _DEBUG_CAI_   1
+
+#define _USE_UART_COM 0
+
 /**
  * navigator app start / stop handling function
  *
@@ -128,6 +135,11 @@ Navigator::Navigator() :
 	_traffic_sub = orb_subscribe(ORB_ID(transponder_report));
 
 	reset_triplets();
+
+	_tgtId = 0;
+	#if _DEBUG_CAI_
+	_previous_nav_state = _tgtId;   //for compiling
+	#endif
 }
 
 Navigator::~Navigator()
@@ -234,7 +246,7 @@ Navigator::run()
 	fds[0].fd = _local_pos_sub;
 	fds[0].events = POLLIN;
 
-#if 1
+#if _USE_UART_COM
 	fds[1].fd = open("/dev/ttyS2", O_RDWR | O_NOCTTY);  //file name may be different
 	fds[1].events = POLLIN;
 
@@ -302,7 +314,7 @@ Navigator::run()
 			}
 		}
 
-#if 1
+#if _USE_UART_COM
 		static unsigned int myCounter = 0;
 		char buf[64];
 
