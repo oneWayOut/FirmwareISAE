@@ -60,6 +60,10 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/position_setpoint_triplet.h>
+#include <uORB/topics/vehicle_global_position.h>
+
+
 
 using matrix::Eulerf;
 using matrix::Quatf;
@@ -102,6 +106,8 @@ private:
 	int		_vcontrol_mode_sub{-1};			/**< vehicle status subscription */
 	int		_vehicle_land_detected_sub{-1};		/**< vehicle land detected subscription */
 	int		_vehicle_status_sub{-1};		/**< vehicle status subscription */
+	int     _pos_sp_trip_sub{-1};
+	orb_advert_t	_mavlink_log_pub{nullptr};
 
 	orb_advert_t	_rate_sp_pub{nullptr};			/**< rate setpoint publication */
 	orb_advert_t	_attitude_sp_pub{nullptr};		/**< attitude setpoint point */
@@ -121,6 +127,8 @@ private:
 	vehicle_global_position_s		_global_pos {};		/**< global position */
 	vehicle_rates_setpoint_s		_rates_sp {};		/* attitude rates setpoint */
 	vehicle_status_s			_vehicle_status {};	/**< vehicle status */
+	position_setpoint_triplet_s _pos_sp_triplet {};
+
 
 	Subscription<airspeed_s>			_airspeed_sub;
 

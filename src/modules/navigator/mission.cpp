@@ -230,19 +230,36 @@ Mission::on_active()
 			set_mission_items();
 			printf("cai ms index3 = %d\n", _current_mission_index);
 
-
+			/*mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Maximum altitude above home exceeded by %.1f m",
+						     (double)(dist_z - max_vertical_distance));*/
 			if (_current_mission_index == BEGIN_TGT_R1)
 			{
 				printf("TODO send begin scout cmd!\n");
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout");
+
+				//TODO delete just for debug;
+				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+				pos_sp_triplet->close2tgt = true;
 			}
 			else if (_current_mission_index == BEGIN_TGT_R1 +3)
 			{
 				printf("TODO send stop scout cmd!\n");
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout");
 			}
 			else if (_current_mission_index == BEGIN_TGT_R2)
 			{
 				printf("TODO add special cmmd to triple set; ");
 				printf("to indicate att module to drop cmd!\n");
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "navi detect drop!!!");
+				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+				pos_sp_triplet->close2tgt = true;
+			}
+
+			//TODO change the condition to BEGIN_TGT_R2
+			if (_current_mission_index != BEGIN_TGT_R1)
+			{
+				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+				pos_sp_triplet->close2tgt = false;
 			}
 		}
 

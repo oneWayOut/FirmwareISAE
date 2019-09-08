@@ -34,6 +34,7 @@
 #include "FixedwingAttitudeControl.hpp"
 
 #include <vtol_att_control/vtol_type.h>
+#include <systemlib/mavlink_log.h>
 
 using namespace time_literals;
 
@@ -142,6 +143,7 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_vehicle_land_detected_sub = orb_subscribe(ORB_ID(vehicle_land_detected));
 	_battery_status_sub = orb_subscribe(ORB_ID(battery_status));
 	_rates_sp_sub = orb_subscribe(ORB_ID(vehicle_rates_setpoint));
+	_pos_sp_trip_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
 }
 
 FixedwingAttitudeControl::~FixedwingAttitudeControl()
@@ -156,6 +158,7 @@ FixedwingAttitudeControl::~FixedwingAttitudeControl()
 	orb_unsubscribe(_vehicle_land_detected_sub);
 	orb_unsubscribe(_battery_status_sub);
 	orb_unsubscribe(_rates_sp_sub);
+	orb_unsubscribe(_pos_sp_trip_sub);
 
 	perf_free(_loop_perf);
 	perf_free(_nonfinite_input_perf);
@@ -375,6 +378,7 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 	}
 }
 
+
 void
 FixedwingAttitudeControl::vehicle_attitude_setpoint_poll()
 {
@@ -409,15 +413,29 @@ FixedwingAttitudeControl::vehicle_rates_setpoint_poll()
 	}
 }
 
+
+//cai pos and pos setpoint poll
 void
 FixedwingAttitudeControl::global_pos_poll()
 {
 	/* check if there is a new global position */
-	bool global_pos_updated;
-	orb_check(_global_pos_sub, &global_pos_updated);
+	bool updated;
+	orb_check(_global_pos_sub, &updated);
 
-	if (global_pos_updated) {
+	if (updated) {
 		orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);
+	}
+
+
+	orb_check(_pos_sp_trip_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(position_setpoint_triplet), _pos_sp_trip_sub, &_pos_sp_triplet);
+		// if (_pos_sp_triplet.close2tgt)
+		// {
+		// 	printf("pos lat = %6.3f  ", _pos_sp_triplet.current.lat);
+		// 	printf("pos ts = %llu\n", _pos_sp_triplet.timestamp);
+		// }
 	}
 }
 
@@ -566,6 +584,7 @@ void FixedwingAttitudeControl::run()
 			matrix::Dcmf R = matrix::Quatf(_att.q);
 
 			if (_is_tailsitter) {
+				#if 0
 				/* vehicle is a tailsitter, we need to modify the estimated attitude for fw mode
 				 *
 				 * Since the VTOL airframe is initialized as a multicopter we need to
@@ -606,6 +625,7 @@ void FixedwingAttitudeControl::run()
 				float helper = _att.rollspeed;
 				_att.rollspeed = -_att.yawspeed;
 				_att.yawspeed = helper;
+				#endif
 			}
 
 			const matrix::Eulerf euler_angles(R);
@@ -872,6 +892,13 @@ void FixedwingAttitudeControl::run()
 
 				int instance;
 				orb_publish_auto(ORB_ID(rate_ctrl_status), &_rate_ctrl_status_pub, &rate_ctrl_status, &instance, ORB_PRIO_DEFAULT);
+			}
+
+			static bool receivedDropCmd = false;
+			if (_pos_sp_triplet.close2tgt && !receivedDropCmd)
+			{
+				receivedDropCmd = true;
+				mavlink_log_critical(&_mavlink_log_pub, "TODO Drop!!!");
 			}
 
 			// Add feed-forward from roll control output to yaw control output

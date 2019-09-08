@@ -6,3 +6,5 @@ uint64 timestamp		# time since system start (microseconds)
 px4/position_setpoint previous
 px4/position_setpoint current
 px4/position_setpoint next
+
+bool close2tgt  # indicate if approach target

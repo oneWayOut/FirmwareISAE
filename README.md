@@ -7,11 +7,13 @@
 
 #custum project 　with companion to drop bag
 
-make:
-make px4_fmu-v2_default
+~~~
+#make px4_fmu-v2_default
+make px4_fmu-v2_fixedwing
+make px4_fmu-v5_fixedwing   #pixhack v5;
 
 make px4_sitl gazebo_plane
-
+~~~
 
 
 # PX4 Drone Autopilot

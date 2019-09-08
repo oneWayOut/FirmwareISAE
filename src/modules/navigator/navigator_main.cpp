@@ -140,6 +140,8 @@ Navigator::Navigator() :
 	#if _DEBUG_CAI_
 	_previous_nav_state = _tgtId;   //for compiling
 	#endif
+
+	_pos_sp_triplet.close2tgt = false;
 }
 
 Navigator::~Navigator()
@@ -344,6 +346,9 @@ Navigator::run()
 
 		myCounter++;
 #endif
+		//cai set close2tgt to false at each cycle beginning;
+		//_pos_sp_triplet.close2tgt = false;
+		
 
 		perf_begin(_loop_perf);
 
