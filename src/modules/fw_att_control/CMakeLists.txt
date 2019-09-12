@@ -33,6 +33,7 @@
 px4_add_module(
 	MODULE modules__fw_att_control
 	MAIN fw_att_control
+	COMPILE_FLAGS -O0
 	SRCS
 		FixedwingAttitudeControl.cpp
 	DEPENDS

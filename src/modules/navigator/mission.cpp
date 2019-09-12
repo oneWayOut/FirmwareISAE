@@ -232,7 +232,8 @@ Mission::on_active()
 
 			/*mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Maximum altitude above home exceeded by %.1f m",
 						     (double)(dist_z - max_vertical_distance));*/
-			if (_current_mission_index == BEGIN_TGT_R1)
+			//if (_current_mission_index == BEGIN_TGT_R1)
+			if (_current_mission_index == 2)
 			{
 				printf("TODO send begin scout cmd!\n");
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout");
@@ -256,11 +257,11 @@ Mission::on_active()
 			}
 
 			//TODO change the condition to BEGIN_TGT_R2
-			if (_current_mission_index != BEGIN_TGT_R1)
-			{
-				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
-				pos_sp_triplet->close2tgt = false;
-			}
+			// if (_current_mission_index != BEGIN_TGT_R1)
+			// {
+			// 	position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+			// 	pos_sp_triplet->close2tgt = false;
+			// }
 		}
 
 	} else if (_mission_type != MISSION_TYPE_NONE && _param_mis_altmode.get() == MISSION_ALTMODE_FOH) {

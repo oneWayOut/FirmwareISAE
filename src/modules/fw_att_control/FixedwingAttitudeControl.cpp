@@ -431,11 +431,11 @@ FixedwingAttitudeControl::global_pos_poll()
 
 	if (updated) {
 		orb_copy(ORB_ID(position_setpoint_triplet), _pos_sp_trip_sub, &_pos_sp_triplet);
-		// if (_pos_sp_triplet.close2tgt)
-		// {
-		// 	printf("pos lat = %6.3f  ", _pos_sp_triplet.current.lat);
-		// 	printf("pos ts = %llu\n", _pos_sp_triplet.timestamp);
-		// }
+		if (_pos_sp_triplet.close2tgt)
+		{
+			printf("pos lat = %6.3f  ", _pos_sp_triplet.current.lat);
+			printf("pos ts = %llu\n", _pos_sp_triplet.timestamp);
+		}
 	}
 }
 
@@ -627,6 +627,8 @@ void FixedwingAttitudeControl::run()
 				_att.yawspeed = helper;
 				#endif
 			}
+
+			_pos_sp_triplet.close2tgt = false;
 
 			const matrix::Eulerf euler_angles(R);
 

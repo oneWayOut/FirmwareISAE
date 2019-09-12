@@ -347,7 +347,7 @@ Navigator::run()
 		myCounter++;
 #endif
 		//cai set close2tgt to false at each cycle beginning;
-		//_pos_sp_triplet.close2tgt = false;
+		_pos_sp_triplet.close2tgt = false;
 		
 
 		perf_begin(_loop_perf);
