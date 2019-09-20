@@ -431,10 +431,10 @@ FixedwingAttitudeControl::global_pos_poll()
 
 	if (updated) {
 		orb_copy(ORB_ID(position_setpoint_triplet), _pos_sp_trip_sub, &_pos_sp_triplet);
-		if (_pos_sp_triplet.close2tgt)
+		//if (_pos_sp_triplet.close2tgt)
 		{
-			printf("pos lat = %6.3f  ", _pos_sp_triplet.current.lat);
-			printf("pos ts = %llu\n", _pos_sp_triplet.timestamp);
+		//	printf("pos lat = %6.3f  ", _pos_sp_triplet.current.lat);
+			printf("c= %c, pos  ts = %llu\n", _pos_sp_triplet.close2tgt? 't':'f',  _pos_sp_triplet.timestamp);
 		}
 	}
 }

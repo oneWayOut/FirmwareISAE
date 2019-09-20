@@ -925,12 +925,22 @@ Navigator::print_status()
 void
 Navigator::publish_position_setpoint_triplet()
 {
+	static unsigned int counter = 0;
 	// do not publish an invalid setpoint
 	if (!_pos_sp_triplet.current.valid) {
 		return;
 	}
 
+
+
 	_pos_sp_triplet.timestamp = hrt_absolute_time();
+
+//	if (_pos_sp_triplet.close2tgt)
+	{
+		printf("c= %c, navi ts = %llu; ", _pos_sp_triplet.close2tgt? 't':'f',  _pos_sp_triplet.timestamp);
+		printf("counter = %u \n", counter);
+		counter++;
+	}
 
 	/* lazily publish the position setpoint triplet only once available */
 	if (_pos_sp_triplet_pub != nullptr) {

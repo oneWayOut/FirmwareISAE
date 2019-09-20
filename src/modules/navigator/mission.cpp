@@ -235,7 +235,7 @@ Mission::on_active()
 			//if (_current_mission_index == BEGIN_TGT_R1)
 			if (_current_mission_index == 2)
 			{
-				printf("TODO send begin scout cmd!\n");
+				//printf("TODO send begin scout cmd!\n");
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout");
 
 				//TODO delete just for debug;
