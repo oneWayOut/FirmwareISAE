@@ -1,0 +1,42 @@
+[hardfault_log] Fault Log is Armed
+INFO  [tune_control] Publishing standard tune 1
+INFO  [param] selected parameter default file /fs/mtd_params
+Board defaults: /etc/init.d/rc.board_defaults
+WARN  [rgbled] no RGB led on bus #1
+rgbled1 on I2C bus 1 at 0x39 (bus: 100 KHz, max: 100 KHz)
+nsh: blinkm: command not found
+Board sensors: /etc/init.d/rc.board_sensors
+MPU6000 on SPI bus 1 at 1 (1000 KHz)
+MPU6000 on SPI bus 1 at 0 (1000 KHz)
+WARN  [mpu6000] unexpected ID 0x00 accepted
+BMI055_ACCEL on SPI bus 1 at 3 (10000 KHz)
+BMI055_GYRO on SPI bus 1 at 2 (10000 KHz)
+INFO  [ist8310] no device on bus 1
+INFO  [ist8310] no device on bus 2
+WARN  [hmc5883] no device on bus 1 (type: 2)
+WARN  [hmc5883] no device on bus 2 (type: 2)
+WARN  [hmc5883] no device on bus 4 (type: 2)
+WARN  [qmc5883] no device on bus 1 (type: 2)
+WARN  [qmc5883] no device on bus 2 (type: 2)
+WARN  [qmc5883] no device on bus 4 (type: 2)
+WARN  [lis3mdl] no device on bus 2
+WARN  [lis3mdl] no device on bus 2
+WARN  [lis3mdl] no device on bus 2
+IST8310 on I2C bus 3 at 0x0e (bus: 100 KHz, max: 400 KHz)
+nsh: pmw3901: command not found
+MS5611_SPI on SPI bus 4 at 0 (20000 KHz)
+WARN  [bst] no devices found
+INFO  [mavlink] mode: Config, data rate: 800000 B/s on /dev/ttyACM0 @ 57600B
+Starting Main GPS on /dev/ttyS0
+Starting MAVLink on /dev/ttyS1
+INFO  [mavlink] mode: Normal, data rate: 1200 B/s on /dev/ttyS1 @ 57600B
+INFO  [px4io] default PWM output device
+INFO  [init] Mixer: /etc/mixers/AETRFG.main.mix on /dev/pwm_output0
+INFO  [init] Mixer: /etc/mixers/pass.aux.mix on /dev/pwm_output1
+nsh: px4flow: command not found
+px4flow [446:100]
+INFO  [logger] logger started (mode=all)
+
+NuttShell (NSH)
+nsh> INFO  [ecl/EKF] EKF aligned, (pressure height, IMU buf: 22, OBS buf: 14)
+

@@ -87,6 +87,8 @@ const char *const arming_state_names[vehicle_status_s::ARMING_STATE_MAX] = {
 
 static hrt_abstime last_preflight_check = 0;	///< initialize so it gets checked immediately
 
+extern orb_advert_t* getMavlinkPub(void);
+
 void set_link_loss_nav_state(vehicle_status_s *status, actuator_armed_s *armed,
 			     const vehicle_status_flags_s &status_flags, commander_state_s *internal_state, const link_loss_actions_t link_loss_act,
 			     uint8_t auto_recovery_nav_state);
@@ -256,6 +258,8 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 
 	transition_result_t ret = TRANSITION_DENIED;
 
+	orb_advert_t*  mavlink_log_pub = getMavlinkPub();
+
 	/* transition may be denied even if the same state is requested because conditions may have changed */
 	switch (new_main_state) {
 	case commander_state_s::MAIN_STATE_MANUAL:
@@ -309,8 +313,12 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 		/* need global position, home position, and a valid mission */
 		if (status_flags.condition_global_position_valid &&
 		    status_flags.condition_auto_mission_available) {
-
+			mavlink_log_critical(mavlink_log_pub, "!!CAI auto mission OK!!:");
 			ret = TRANSITION_CHANGED;
+		} else if (!status_flags.condition_global_position_valid ) {
+			mavlink_log_critical(mavlink_log_pub, "!!CAI glb Pos Error!!:");
+		} else {
+			mavlink_log_critical(mavlink_log_pub, "!!CAI Auto Mission Error");
 		}
 
 		break;

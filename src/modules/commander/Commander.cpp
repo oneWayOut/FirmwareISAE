@@ -174,6 +174,13 @@ static float _eph_threshold_adj =
 	INFINITY;	///< maximum allowable horizontal position uncertainty after adjustment for flight condition
 static bool _skip_pos_accuracy_check = false;
 
+
+orb_advert_t* getMavlinkPub(void)
+{
+	return &mavlink_log_pub;
+}
+
+
 /**
  * The daemon app only briefly exists to start
  * the background job. The stack size assigned in the
