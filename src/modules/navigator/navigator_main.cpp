@@ -295,10 +295,15 @@ Navigator::run()
 
 	hrt_abstime last_geofence_check = 0;
 
+
 	while (!should_exit()) {
 
 		/* wait for up to 1000ms for data */
+#if _USE_UART_COM
 		int pret = px4_poll(&fds[0], 2, 1000);
+#else
+		int pret = px4_poll(&fds[0], 1, 1000);
+#endif
 
 		if (pret == 0) {
 			/* Let the loop run anyway, don't do `continue` here. */
@@ -353,6 +358,7 @@ Navigator::run()
 		perf_begin(_loop_perf);
 
 		bool updated;
+
 
 		/* gps updated */
 		orb_check(_gps_pos_sub, &updated);

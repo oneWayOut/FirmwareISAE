@@ -611,6 +611,8 @@ bool
 Commander::handle_command(vehicle_status_s *status_local, const vehicle_command_s &cmd, actuator_armed_s *armed_local,
 			  orb_advert_t *command_ack_pub, bool *changed)
 {
+	//orb_advert_t * mavlink_log_pub = getMavlinkPub();
+
 	/* only handle commands that are meant to be handled by this system and component */
 	if (cmd.target_system != status_local->system_id || ((cmd.target_component != status_local->component_id)
 			&& (cmd.target_component != 0))) { // component_id 0: valid for all components
@@ -649,6 +651,9 @@ Commander::handle_command(vehicle_status_s *status_local, const vehicle_command_
 		break;
 
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_MODE: {
+
+			//mavlink_log_critical(&mavlink_log_pub, "cai mavsetmode!");
+
 			uint8_t base_mode = (uint8_t)cmd.param1;
 			uint8_t custom_main_mode = (uint8_t)cmd.param2;
 			uint8_t custom_sub_mode = (uint8_t)cmd.param3;
@@ -691,9 +696,10 @@ Commander::handle_command(vehicle_status_s *status_local, const vehicle_command_
 							if (status_flags.condition_auto_mission_available) {
 								main_ret = main_state_transition(*status_local, commander_state_s::MAIN_STATE_AUTO_MISSION, status_flags,
 												 &internal_state);
-
+								//mavlink_log_critical(&mavlink_log_pub, "cai mavsetmode1!");
 							} else {
 								main_ret = TRANSITION_DENIED;
+								mavlink_log_critical(&mavlink_log_pub, "cai mission not available!");
 							}
 
 							break;

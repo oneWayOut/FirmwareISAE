@@ -313,7 +313,7 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 		/* need global position, home position, and a valid mission */
 		if (status_flags.condition_global_position_valid &&
 		    status_flags.condition_auto_mission_available) {
-			mavlink_log_critical(mavlink_log_pub, "!!CAI auto mission OK!!:");
+			//mavlink_log_critical(mavlink_log_pub, "!!CAI auto mission OK!!:");
 			ret = TRANSITION_CHANGED;
 		} else if (!status_flags.condition_global_position_valid ) {
 			mavlink_log_critical(mavlink_log_pub, "!!CAI glb Pos Error!!:");

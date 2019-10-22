@@ -1,9 +1,10 @@
-#### 注意接线不要错
 
 ## TODO:
 	1. navigator 中加航点判断特殊处理;
 	2. L1 accept radius
 	3. check rate of vehicle_global_position(125Hz),  this matters the drop accuracy!!
+	4. 外置磁罗盘，校准, 方向必须一致 CUAV,
+	5. 工控机上电后自动进入系统，不要用户名，密码，通过自启动脚本启动python程序;
 
 ## NOTE:
 	1. 串口文件设备，read函数为阻塞调用
@@ -11,4 +12,66 @@
 	2. upload arduino program:  unplug all connections!!!
 
 	3. make file proto is at boards/....
+
+
+### 日志分析
+过回放确定日志具体为哪一个，然后通过analysis.py分析对应的文件。
+
+/media/cai/work/Coding/pyFlightAnalysis/src$ python3 analysis.py
+
+
+	cheese 摄像头
+
+### 仿真时设置飞机位置
+	export PX4_HOME_LAT=34.6633145
+	export PX4_HOME_LON=109.2372228
+
+	export PX4_HOME_LAT=34.6748478
+	export PX4_HOME_LON=109.3796605
+
+### V1.9.2中消息的发布有时直接用如ORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub的对象，调用update函数，更加简洁；
+
+### rangefinder数据发布后，ekf2模块获取，应该是融合至vehicle_local_position_s消息中后发布;
+
+
+
+
+
+## LOG:
+
+### 2019.10.26
+	10.22飞行，无法切mission; 接调试线后可切，自动起飞无响应；
+
+	原因: navigator_main.cpp中px4_poll函数使用不当；导致导航任务一直死等。
+	自动起飞无响应, 应设置RWTO等参数，令其为跑道起飞。
+	使能超声波参数MBXX;  
+
+	必须有takeoff点才能自动起飞；
+
+### 2019.10.12
+ FW_LND_USETER　Use terrain estimate (ground altitude from GPS) during landing; 应该设为false
+
+### 2019.10.7
+ 1. ERROR: 无法切至mission模式;
+    遥控器切换至mission模式是打印Critical: REJECT AUTO MISSION；　应该是Commander.cpp L2822行处打印，从地面站切mission应该不会打印该消息; 
+    可在State_machine_helper.cpp中的main_state_transition()函数中加入调试代码看看,位置无效导致的?
+    利用好QGC的　Mavlink Console
+
+    
+ 2. ERROR: 锁定后舵机进入极位；
+　3. ERROR: 插入电源线后, 飞控没上电;
+ 4. WARNING: 高度保持得不好；
+ 5. NOTE: 虽然校准后有两个磁罗盘，但通过改参数(CAL_MAG_PRIME)使用内置磁罗盘，并禁用(CAL_MAG0_EN)外置磁罗盘
+
+### 2019.9.28
+396809   mag0
+396825   mag1
+
+上网查外置磁罗盘，C-RTK 9p　可能没有包含磁罗盘，
+
+待测试，链接调试器，下次试飞或换一个gps试试
+自主起降是否需要超声波??
+
+
+
 
