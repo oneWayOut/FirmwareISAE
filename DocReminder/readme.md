@@ -1,3 +1,9 @@
+# TODO
+ 1. add command to release door;
+ 2. add param to identify which index;
+ 3. 测试添加的参数是否有效，仿真时没问题;
+
+
 
 ## TODO:
 	1. navigator 中加航点判断特殊处理;
@@ -12,6 +18,8 @@
 	2. upload arduino program:  unplug all connections!!!
 
 	3. make file proto is at boards/....
+
+	4.　目前代码在接近DROP_TGTIDX_R2时，投放
 
 
 ### 日志分析
@@ -38,6 +46,19 @@
 
 
 ## LOG:
+
+### 2019.11.2
+　　　　自动起飞，航线飞行，投放均成功；
+	
+	发现问题或待办:
+	1. 第二圈自动飞行时未按照航路飞，爬很高，怀疑是通过地面站上传航线出问题；rtk占用一定数传带宽？？
+	2. 罗盘校准显示inconsitent;
+	3. 准备降落时，航线偏离跑道，怀疑是航点定义偏差，有没有可能是磁罗盘原因？
+	　　　下次试飞时，找跑道中两个点的位置连线；
+
+	
+
+
 
 ### 2019.10.26
 	10.22飞行，无法切mission; 接调试线后可切，自动起飞无响应；

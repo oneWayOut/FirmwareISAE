@@ -906,7 +906,16 @@ void FixedwingAttitudeControl::run()
 			_actuators.control[actuator_controls_s::INDEX_YAW] += _parameters.roll_to_yaw_ff * math::constrain(
 						_actuators.control[actuator_controls_s::INDEX_ROLL], -1.0f, 1.0f);
 
-			_actuators.control[actuator_controls_s::INDEX_FLAPS] = _flaps_applied;
+			//_actuators.control[actuator_controls_s::INDEX_FLAPS] = _flaps_applied;
+			//cai added; todo check;
+			if (receivedDropCmd)
+			{
+				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.5;
+			}
+			else
+			{
+				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0;
+			}
 			_actuators.control[5] = _manual.aux1;
 			_actuators.control[actuator_controls_s::INDEX_AIRBRAKES] = _flaperons_applied;
 			// FIXME: this should use _vcontrol_mode.landing_gear_pos in the future

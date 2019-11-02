@@ -239,6 +239,8 @@ private:
 		(ParamFloat<px4::params::MIS_DIST_1WP>) _param_mis_dist_1wp,
 		(ParamFloat<px4::params::MIS_DIST_WPS>) _param_mis_dist_wps,
 		(ParamInt<px4::params::MIS_ALTMODE>) _param_mis_altmode,
+		(ParamInt<px4::params::DROP_TGTIDX_R1>) _param_tgtidx_r1,
+		(ParamInt<px4::params::DROP_TGTIDX_R2>) _param_tgtidx_r2,
 		(ParamInt<px4::params::MIS_MNT_YAW_CTL>) _param_mis_mnt_yaw_ctl
 	)
 

@@ -65,7 +65,6 @@ Flaps are controlled automatically in position control and auto
 but can also be controlled manually
 
 M: 1
-O:        5000  10000       0  -10000  10000
 S: 0 4   10000  10000       0  -10000  10000
 
 CH6: Landing gear mixer

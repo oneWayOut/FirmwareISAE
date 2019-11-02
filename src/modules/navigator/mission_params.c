@@ -171,3 +171,29 @@ PARAM_DEFINE_FLOAT(MIS_YAW_TMT, -1.0f);
  * @group Mission
  */
 PARAM_DEFINE_FLOAT(MIS_YAW_ERR, 12.0f);
+
+
+
+
+/**
+ * begin target waypoint index in round one; 
+ *
+ * we have 3 targets,  this index is the first one;
+ *
+ * @min 1
+ * @max 99
+ * @group CAI_CUSTOM
+ */
+PARAM_DEFINE_INT32(DROP_TGTIDX_R1, 1);
+
+
+/**
+ * begin target waypoint index in round ｔｗｏ; 
+ *
+ * we have 3 targets,  this index is the first one;
+ *
+ * @min 1
+ * @max 99
+ * @group CAI_CUSTOM
+ */
+PARAM_DEFINE_INT32(DROP_TGTIDX_R2, 1);
