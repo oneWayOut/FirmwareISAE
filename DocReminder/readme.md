@@ -1,8 +1,4 @@
-# TODO
- 1. add command to release door;
- 2. add param to identify which index;
- 3. 测试添加的参数是否有效，仿真时没问题;
-
+2019.11.5尝试调试，代码，ide调试不行，gdb调试也不行；
 
 
 ## TODO:
@@ -11,6 +7,8 @@
 	3. check rate of vehicle_global_position(125Hz),  this matters the drop accuracy!!
 	4. 外置磁罗盘，校准, 方向必须一致 CUAV,
 	5. 工控机上电后自动进入系统，不要用户名，密码，通过自启动脚本启动python程序;
+	6. debug ide qt, 简化，使用一个目录??? 不用费时编译两次?
+	7. 待确认截取图片尺寸是否正确cv2.imshow("2", imgray)
 
 ## NOTE:
 	1. 串口文件设备，read函数为阻塞调用
@@ -19,7 +17,11 @@
 
 	3. make file proto is at boards/....
 
-	4.　目前代码在接近DROP_TGTIDX_R2时，投放
+	4.　第一圈三个靶标仅将第一个作为航点加在航线中，作为开始识别的标识，过了该点即发送停止识别指令；第二圈三个均加在航线中；目前代码在接近DROP_TGTIDX_R2时，投放; 发布的position_setpoint_trip中目标点cur的经纬度是DROP_TGTIDX_R2+1点的经纬度
+
+	5. IDE debug; cd ../Firmware-build
+cmake ../Firmware -G "CodeBlocks - Unix Makefiles"
+
 
 
 ### 日志分析

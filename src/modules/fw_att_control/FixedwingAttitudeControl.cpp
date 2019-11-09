@@ -895,10 +895,16 @@ void FixedwingAttitudeControl::run()
 			}
 
 			static bool receivedDropCmd = false;
-			if (_pos_sp_triplet.close2tgt && !receivedDropCmd)
+			if (_pos_sp_triplet.cmdstage==3 && !receivedDropCmd)
 			{
 				receivedDropCmd = true;
 				mavlink_log_critical(&_mavlink_log_pub, "TODO Drop!!!");
+			}
+
+
+			if (receivedDropCmd && _vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED)
+			{
+				receivedDropCmd = false;
 			}
 
 			// Add feed-forward from roll control output to yaw control output

@@ -233,38 +233,26 @@ Mission::on_active()
 			/*mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Maximum altitude above home exceeded by %.1f m",
 						     (double)(dist_z - max_vertical_distance));*/
 
-			//TODO delete this
-			if (_current_mission_index == BEGIN_TGT_R1)
+			position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+
+			if (_current_mission_index == _param_tgtidx_r1.get())
 			{
-				printf("TODO send begin scout cmd!\n");
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout");
-
-				//TODO delete just for debug;
-				//position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
-				//pos_sp_triplet->close2tgt = true;
+				pos_sp_triplet->cmdstage = 1;
 			}
-			else if (_current_mission_index == BEGIN_TGT_R1 +3)
+			else if (_current_mission_index == _param_tgtidx_r1.get()+1)
 			{
-				printf("TODO send stop scout cmd!\n");
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout");
+				pos_sp_triplet->cmdstage = 2;
 			}
-			
-
-
-			if (_current_mission_index == _param_tgtidx_r2.get() )
+			else if (_current_mission_index == _param_tgtidx_r2.get() )
 			{
-				printf("TODO add special cmmd to triple set; ");
-				printf("to indicate att module to drop cmd!\n");
-				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "navi detect drop!!!");
-				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
-				pos_sp_triplet->close2tgt = true;
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Close to Target!");
+				pos_sp_triplet->cmdstage = 3;
 			}
 			else
-			//TODO change the condition to BEGIN_TGT_R2
-			//if (_current_mission_index != BEGIN_TGT_R1)
 			{
-				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
-				pos_sp_triplet->close2tgt = false;
+				pos_sp_triplet->cmdstage = 0;
 			}
 		}
 

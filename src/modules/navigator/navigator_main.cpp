@@ -71,7 +71,12 @@
 
 #define _DEBUG_CAI_   1
 
-#define _USE_UART_COM 0
+
+#ifdef __PX4_NUTTX
+	#define _USE_UART_COM 0
+#else
+	#define _USE_UART_COM 0
+#endif
 
 /**
  * navigator app start / stop handling function
@@ -141,7 +146,7 @@ Navigator::Navigator() :
 	_previous_nav_state = _tgtId;   //for compiling
 	#endif
 
-	_pos_sp_triplet.close2tgt = false;
+	_pos_sp_triplet.cmdstage = 0;
 }
 
 Navigator::~Navigator()
@@ -345,8 +350,8 @@ Navigator::run()
 		{
 			buf[0] = 'H';
 			pret = write(fds[1].fd, buf, 1);
-			printf("pret = %d;", pret);
-			printf("cnt=%d\n", myCounter);
+			//printf("pret = %d;", pret);
+			//printf("cnt=%d\n", myCounter);
 		}
 
 		myCounter++;
@@ -945,6 +950,11 @@ Navigator::publish_position_setpoint_triplet()
 	} else {
 		_pos_sp_triplet_pub = orb_advertise(ORB_ID(position_setpoint_triplet), &_pos_sp_triplet);
 	}
+
+	// if (_pos_sp_triplet.cmdstage == 3)
+	// {
+	// 	printf("lat = %10.6f;lon=%10.6f\n", _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
+	// }
 
 	_pos_sp_triplet_updated = false;
 }

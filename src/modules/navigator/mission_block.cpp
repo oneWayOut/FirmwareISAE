@@ -315,6 +315,7 @@ MissionBlock::is_mission_item_reached()
 			if (dist >= 0.0f && dist <= mission_acceptance_radius
 			    && dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
+				//printf("_mission_item.acceptance_radius = %f\n", (double)_mission_item.acceptance_radius);
 			}
 		}
 
