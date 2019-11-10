@@ -431,11 +431,6 @@ FixedwingAttitudeControl::global_pos_poll()
 
 	if (updated) {
 		orb_copy(ORB_ID(position_setpoint_triplet), _pos_sp_trip_sub, &_pos_sp_triplet);
-		// if (_pos_sp_triplet.close2tgt)
-		// {
-		// 	printf("pos lat = %6.3f  ", _pos_sp_triplet.current.lat);
-		// 	printf("pos ts = %llu\n", _pos_sp_triplet.timestamp);
-		// }
 	}
 }
 
@@ -583,8 +578,8 @@ void FixedwingAttitudeControl::run()
 			/* get current rotation matrix and euler angles from control state quaternions */
 			matrix::Dcmf R = matrix::Quatf(_att.q);
 
-			if (_is_tailsitter) {
 				#if 0
+			if (_is_tailsitter) {
 				/* vehicle is a tailsitter, we need to modify the estimated attitude for fw mode
 				 *
 				 * Since the VTOL airframe is initialized as a multicopter we need to
@@ -625,8 +620,8 @@ void FixedwingAttitudeControl::run()
 				float helper = _att.rollspeed;
 				_att.rollspeed = -_att.yawspeed;
 				_att.yawspeed = helper;
-				#endif
 			}
+				#endif
 
 			const matrix::Eulerf euler_angles(R);
 
@@ -659,18 +654,20 @@ void FixedwingAttitudeControl::run()
 
 			control_flaps(deltaT);
 
+			const float airspeed = get_airspeed_and_update_scaling();
+
+			/* Use min airspeed to calculate ground speed scaling region.
+			 * Don't scale below gspd_scaling_trim
+			 */
+			float groundspeed = sqrtf(_global_pos.vel_n * _global_pos.vel_n +
+						  _global_pos.vel_e * _global_pos.vel_e);
+			float gspd_scaling_trim = (_parameters.airspeed_min * 0.6f);
+			float groundspeed_scaler = gspd_scaling_trim / ((groundspeed < gspd_scaling_trim) ? gspd_scaling_trim : groundspeed);
+
+
 			/* decide if in stabilized or full manual control */
 			if (_vcontrol_mode.flag_control_rates_enabled) {
 
-				const float airspeed = get_airspeed_and_update_scaling();
-
-				/* Use min airspeed to calculate ground speed scaling region.
-				 * Don't scale below gspd_scaling_trim
-				 */
-				float groundspeed = sqrtf(_global_pos.vel_n * _global_pos.vel_n +
-							  _global_pos.vel_e * _global_pos.vel_e);
-				float gspd_scaling_trim = (_parameters.airspeed_min * 0.6f);
-				float groundspeed_scaler = gspd_scaling_trim / ((groundspeed < gspd_scaling_trim) ? gspd_scaling_trim : groundspeed);
 
 				/* reset integrals where needed */
 				if (_att_sp.roll_reset_integral) {
@@ -898,7 +895,11 @@ void FixedwingAttitudeControl::run()
 			if (_pos_sp_triplet.cmdstage==3 && !receivedDropCmd)
 			{
 				receivedDropCmd = true;
-				mavlink_log_critical(&_mavlink_log_pub, "TODO Drop!!!");
+				//mavlink_log_critical(&_mavlink_log_pub, "TODO Drop!!!");
+				
+				mavlink_log_critical(&_mavlink_log_pub, "Drop: %10.7f, %11.7f, %5.2f m, %5.3f Gs", 
+					_global_pos.lat, _global_pos.lon, (double)(_global_pos.alt), (double)groundspeed);
+				mavlink_log_critical(&_mavlink_log_pub, "AS:%5.3f", (double)airspeed);
 			}
 
 
