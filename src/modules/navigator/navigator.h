@@ -295,6 +295,11 @@ public:
 
 	bool		force_vtol();
 
+	int32_t     getTgtIdx(void) const { return _tgtIdx; }
+
+
+	void        setCmdStage(int32_t stg) { _pos_sp_triplet.cmdstage =  stg; } // only for debug use;
+
 private:
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad,	/**< loiter radius for fixedwing */
@@ -350,7 +355,7 @@ private:
 
 	uint8_t						_previous_nav_state{}; /**< nav_state of the previous iteration*/
 
-	uint8_t                                         _tgtId;  //1,2 or 3;
+	int32_t                    _tgtIdx;  //1,2 or 3;
 
 	// Publications
 	geofence_result_s				_geofence_result{};

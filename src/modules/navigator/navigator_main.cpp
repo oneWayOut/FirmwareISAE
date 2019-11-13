@@ -69,11 +69,12 @@
 
 
 
-#define _DEBUG_CAI_   1
+#define _DEBUG_CAI_   1  // TODO set 0 when release with camera pluged
 
 
 #ifdef __PX4_NUTTX
-	#define _USE_UART_COM 0
+	#define _USE_UART_COM 1
+#include <termios.h>
 #else
 	#define _USE_UART_COM 0
 #endif
@@ -141,10 +142,8 @@ Navigator::Navigator() :
 
 	reset_triplets();
 
-	_tgtId = 0;
-	#if _DEBUG_CAI_
-	_previous_nav_state = _tgtId;   //for compiling
-	#endif
+	_tgtIdx = 0;  //0, 1 or 2; set an default value to 0, the first one;
+
 
 	_pos_sp_triplet.cmdstage = 0;
 }
@@ -326,39 +325,6 @@ Navigator::run()
 			}
 		}
 
-#if _USE_UART_COM
-		static unsigned int myCounter = 0;
-		char buf[64];
-
-		if ((fds[1].revents & POLLIN))
-		{
-			//block call
-			pret = read(fds[1].fd, buf, 64);
-
-			if (pret>0)
-			{
-				PX4_INFO("cai read ttyS2: ");
-				printf("%d :", pret);
-				for (ssize_t i = 0; i < pret; ++i)
-				{
-					printf("%c", buf[i]);
-				}
-			}
-		}
-
-		if (myCounter%10 == 0)
-		{
-			buf[0] = 'H';
-			pret = write(fds[1].fd, buf, 1);
-			//printf("pret = %d;", pret);
-			//printf("cnt=%d\n", myCounter);
-		}
-
-		myCounter++;
-#endif
-		//cai set close2tgt to false at each cycle beginning;
-		//_pos_sp_triplet.close2tgt = false;
-		
 
 		perf_begin(_loop_perf);
 
@@ -888,6 +854,65 @@ Navigator::run()
 			publish_position_setpoint_triplet();
 		}
 
+#if _USE_UART_COM
+		static unsigned int myCounter = 0;
+		char buf[64];
+
+		if ((fds[1].revents & POLLIN))
+		{
+			//block call
+			pret = read(fds[1].fd, buf, 64);
+
+			if (pret>0)
+			{
+				PX4_INFO("cai read ttyS2: ");
+				printf("%d :", pret);
+				for (ssize_t i = 0; i < pret; ++i)
+				{
+					printf("%c", buf[i]);
+					if (buf[i] == '0')
+					{
+						mavlink_log_critical(&_mavlink_log_pub, "PC Power ON");
+					}
+					else if (buf[i] <= '3' && buf[i] >= '1')  //TODO add pre condition cmd stage
+					{
+						mavlink_log_critical(&_mavlink_log_pub, "Tgt Idx = %c", buf[i]);
+
+						_tgtIdx = buf[i] - '1';
+					}
+				}
+			}
+		}
+
+
+		switch (_pos_sp_triplet.cmdstage)
+		{
+		case 1:  // begin scout
+			buf[0] = '1';
+			pret = write(fds[1].fd, buf, 1);
+			_pos_sp_triplet.cmdstage = 0;   //must reset value;
+			break;
+		case 2:  // stop scout
+			buf[0] = '2';
+			pret = write(fds[1].fd, buf, 1);
+			_pos_sp_triplet.cmdstage = 0;
+			break;
+		}
+
+
+
+		//TEST code below
+		if (myCounter%10 == 0)
+		{
+			buf[0] = 'H';
+			//pret = write(fds[1].fd, buf, 1);
+			//printf("pret = %d;", pret);
+			//printf("cnt=%d\n", myCounter);
+		}
+
+		myCounter++;
+#endif
+
 		if (_mission_result_updated) {
 			publish_mission_result();
 		}
@@ -1337,6 +1362,16 @@ int Navigator::custom_command(int argc, char *argv[])
 		get_instance()->fake_traffic("LX007", 500, 1.0f, -1.0f, 100.0f, 90.0f, 0.001f);
 		get_instance()->fake_traffic("LX55", 1000, 0, 0, 100.0f, 90.0f, 0.001f);
 		get_instance()->fake_traffic("LX20", 15000, 1.0f, -1.0f, 280.0f, 90.0f, 0.001f);
+		return 0;
+	}
+	else if (!strcmp(argv[0], "cmdStage1"))
+	{
+		get_instance()->setCmdStage(1);
+		return 0;
+	}
+	else if (!strcmp(argv[0], "cmdStage2"))
+	{
+		get_instance()->setCmdStage(2);
 		return 0;
 	}
 

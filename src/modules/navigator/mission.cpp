@@ -245,14 +245,15 @@ Mission::on_active()
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout");
 				pos_sp_triplet->cmdstage = 2;
 			}
-			else if (_current_mission_index == _param_tgtidx_r2.get() )
+			else if (_current_mission_index == _param_tgtidx_r2.get() + _navigator->getTgtIdx() )
 			{
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Close to Target!");
 				pos_sp_triplet->cmdstage = 3;
 			}
 			else
 			{
-				pos_sp_triplet->cmdstage = 0;
+				; //keep cmdStage value
+				//pos_sp_triplet->cmdstage = 0;
 			}
 		}
 
