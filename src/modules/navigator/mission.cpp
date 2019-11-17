@@ -233,27 +233,27 @@ Mission::on_active()
 			/*mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Maximum altitude above home exceeded by %.1f m",
 						     (double)(dist_z - max_vertical_distance));*/
 
-			position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 
 			if (_current_mission_index == _param_tgtidx_r1.get())
 			{
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout");
-				pos_sp_triplet->cmdstage = 1;
+				_navigator->setCmdStage('1');
 			}
 			else if (_current_mission_index == _param_tgtidx_r1.get()+1)
 			{
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout");
-				pos_sp_triplet->cmdstage = 2;
+				_navigator->setCmdStage('2');
 			}
-			else if (_current_mission_index == _param_tgtidx_r2.get() + _navigator->getTgtIdx() )
+			else if (_current_mission_index == _param_tgtidx_r2.get()-1)
 			{
-				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Close to Target!");
-				pos_sp_triplet->cmdstage = 3;
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Ready drop target");
+
+				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+				pos_sp_triplet->tgtidx = _navigator->getTgtIdx();
 			}
 			else
 			{
 				; //keep cmdStage value
-				//pos_sp_triplet->cmdstage = 0;
 			}
 		}
 

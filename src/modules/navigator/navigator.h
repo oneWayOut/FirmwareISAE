@@ -296,9 +296,12 @@ public:
 	bool		force_vtol();
 
 	int32_t     getTgtIdx(void) const { return _tgtIdx; }
+	
 
+	void        setCmdStage(char cmd) { cmd2Com =  cmd; } // only for debug use;
 
-	void        setCmdStage(int32_t stg) { _pos_sp_triplet.cmdstage =  stg; } // only for debug use;
+private:
+	char                       cmd2Com;  // command to onboard computer
 
 private:
 	DEFINE_PARAMETERS(
@@ -355,7 +358,7 @@ private:
 
 	uint8_t						_previous_nav_state{}; /**< nav_state of the previous iteration*/
 
-	int32_t                    _tgtIdx;  //1,2 or 3;
+	uint8_t                    _tgtIdx;  //1,2 or 3;
 
 	// Publications
 	geofence_result_s				_geofence_result{};

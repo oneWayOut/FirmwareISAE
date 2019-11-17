@@ -36,8 +36,9 @@ cmake ../Firmware -G "CodeBlocks - Unix Makefiles"
 	export PX4_HOME_LAT=34.6633145
 	export PX4_HOME_LON=109.2372228
 
-	export PX4_HOME_LAT=34.6748478
-	export PX4_HOME_LON=109.3796605
+	export PX4_HOME_LAT=34.6753188
+	export PX4_HOME_LON=109.38369484999998
+	export PX4_HOME_ALT=364
 
 ### V1.9.2中消息的发布有时直接用如ORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub的对象，调用update函数，更加简洁；
 

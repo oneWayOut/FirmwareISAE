@@ -750,3 +750,14 @@ PARAM_DEFINE_FLOAT(FW_DTRIM_R_FLPS, 0.0f);
  * @increment 0.01
  */
 PARAM_DEFINE_FLOAT(FW_DTRIM_P_FLPS, 0.0f);
+
+
+
+/**
+ * target point altidue;  AMSL 
+ *
+ *
+ * @decimal 2
+ * @group CAI_CUSTOM
+ */
+PARAM_DEFINE_FLOAT(DROP_TGT_ALT, 381.0f);

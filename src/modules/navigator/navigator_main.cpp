@@ -142,10 +142,11 @@ Navigator::Navigator() :
 
 	reset_triplets();
 
-	_tgtIdx = 0;  //0, 1 or 2; set an default value to 0, the first one;
+	//1, 2 or 3; set an default value to 2, the second one, in case target not found;
+	_tgtIdx = 1;  //TODO set to 2;
 
 
-	_pos_sp_triplet.cmdstage = 0;
+	_pos_sp_triplet.tgtidx = 0;
 }
 
 Navigator::~Navigator()
@@ -865,37 +866,41 @@ Navigator::run()
 
 			if (pret>0)
 			{
-				PX4_INFO("cai read ttyS2: ");
-				printf("%d :", pret);
+				PX4_INFO("cai read ttyS2: %d bytes", pret);
+
 				for (ssize_t i = 0; i < pret; ++i)
 				{
 					printf("%c", buf[i]);
-					if (buf[i] == '0')
+					switch(buf[i])  //Actually only one character
 					{
+					case '0':
 						mavlink_log_critical(&_mavlink_log_pub, "PC Power ON");
-					}
-					else if (buf[i] <= '3' && buf[i] >= '1')  //TODO add pre condition cmd stage
-					{
+						break;
+					case '1':
+					case '2':
+					case '3':
 						mavlink_log_critical(&_mavlink_log_pub, "Tgt Idx = %c", buf[i]);
 
-						_tgtIdx = buf[i] - '1';
+						_tgtIdx = buf[i] - '0';
+						break;
+					case '4':
+						mavlink_log_critical(&_mavlink_log_pub, "Tgt not found");
+						break;
 					}
 				}
 			}
 		}
 
 
-		switch (_pos_sp_triplet.cmdstage)
+		switch (cmd2Com)
 		{
-		case 1:  // begin scout
-			buf[0] = '1';
-			pret = write(fds[1].fd, buf, 1);
-			_pos_sp_triplet.cmdstage = 0;   //must reset value;
-			break;
-		case 2:  // stop scout
-			buf[0] = '2';
-			pret = write(fds[1].fd, buf, 1);
-			_pos_sp_triplet.cmdstage = 0;
+		case '1':  // begin scout
+		case '2':  // stop scout
+			printf("send Cmd %c\n", cmd2Com);
+	
+			buf[0]  = cmd2Com;
+			pret    = write(fds[1].fd, buf, 1);
+			cmd2Com = 0;   //must reset value;
 			break;
 		}
 
@@ -1364,16 +1369,17 @@ int Navigator::custom_command(int argc, char *argv[])
 		get_instance()->fake_traffic("LX20", 15000, 1.0f, -1.0f, 280.0f, 90.0f, 0.001f);
 		return 0;
 	}
-	else if (!strcmp(argv[0], "cmdStage1"))
+	else if (!strcmp(argv[0], "cmd1"))
 	{
-		get_instance()->setCmdStage(1);
+		get_instance()->setCmdStage('1');
 		return 0;
 	}
-	else if (!strcmp(argv[0], "cmdStage2"))
+	else if (!strcmp(argv[0], "cmd2"))
 	{
-		get_instance()->setCmdStage(2);
+		get_instance()->setCmdStage('2');
 		return 0;
 	}
+
 
 	return print_usage("unknown command");
 }

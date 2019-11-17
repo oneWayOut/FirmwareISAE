@@ -7,4 +7,4 @@ px4/position_setpoint previous
 px4/position_setpoint current
 px4/position_setpoint next
 
-uint8 cmdstage  # 0=none; 1=begin scout; 2= stop scout; 3=close to target;
+uint8 tgtidx  # 0=none; 1/2/3 = close to target, and target idx is 1, 2 or 3;

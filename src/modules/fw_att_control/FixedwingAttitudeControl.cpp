@@ -38,6 +38,21 @@
 
 using namespace time_literals;
 
+
+#define _REAL_FLIGHT_ 0
+
+#if _REAL_FLIGHT_
+static const double tgt3LonLat[3][2] = {
+	{0, 0},
+	{0, 0},
+	{0, 0}
+}
+#endif
+
+
+static double tgtLon = 0;
+static double tgtLat = 0;
+
 /**
  * Fixedwing attitude control app start / stop handling function
  *
@@ -123,6 +138,8 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_parameter_handles.bat_scale_en = param_find("FW_BAT_SCALE_EN");
 	_parameter_handles.airspeed_mode = param_find("FW_ARSP_MODE");
 
+	_parameter_handles.tgt_alt = param_find("DROP_TGT_ALT");
+
 	/* fetch initial parameter values */
 	parameters_update();
 
@@ -169,6 +186,10 @@ int
 FixedwingAttitudeControl::parameters_update()
 {
 	int32_t tmp = 0;
+
+	param_get(_parameter_handles.tgt_alt, &(_parameters.tgt_alt));
+
+
 	param_get(_parameter_handles.p_tc, &(_parameters.p_tc));
 	param_get(_parameter_handles.p_p, &(_parameters.p_p));
 	param_get(_parameter_handles.p_i, &(_parameters.p_i));
@@ -578,50 +599,6 @@ void FixedwingAttitudeControl::run()
 			/* get current rotation matrix and euler angles from control state quaternions */
 			matrix::Dcmf R = matrix::Quatf(_att.q);
 
-				#if 0
-			if (_is_tailsitter) {
-				/* vehicle is a tailsitter, we need to modify the estimated attitude for fw mode
-				 *
-				 * Since the VTOL airframe is initialized as a multicopter we need to
-				 * modify the estimated attitude for the fixed wing operation.
-				 * Since the neutral position of the vehicle in fixed wing mode is -90 degrees rotated around
-				 * the pitch axis compared to the neutral position of the vehicle in multicopter mode
-				 * we need to swap the roll and the yaw axis (1st and 3rd column) in the rotation matrix.
-				 * Additionally, in order to get the correct sign of the pitch, we need to multiply
-				 * the new x axis of the rotation matrix with -1
-				 *
-				 * original:			modified:
-				 *
-				 * Rxx  Ryx  Rzx		-Rzx  Ryx  Rxx
-				 * Rxy	Ryy  Rzy		-Rzy  Ryy  Rxy
-				 * Rxz	Ryz  Rzz		-Rzz  Ryz  Rxz
-				 * */
-				matrix::Dcmf R_adapted = R;		//modified rotation matrix
-
-				/* move z to x */
-				R_adapted(0, 0) = R(0, 2);
-				R_adapted(1, 0) = R(1, 2);
-				R_adapted(2, 0) = R(2, 2);
-
-				/* move x to z */
-				R_adapted(0, 2) = R(0, 0);
-				R_adapted(1, 2) = R(1, 0);
-				R_adapted(2, 2) = R(2, 0);
-
-				/* change direction of pitch (convert to right handed system) */
-				R_adapted(0, 0) = -R_adapted(0, 0);
-				R_adapted(1, 0) = -R_adapted(1, 0);
-				R_adapted(2, 0) = -R_adapted(2, 0);
-
-				/* fill in new attitude data */
-				R = R_adapted;
-
-				/* lastly, roll- and yawspeed have to be swaped */
-				float helper = _att.rollspeed;
-				_att.rollspeed = -_att.yawspeed;
-				_att.yawspeed = helper;
-			}
-				#endif
 
 			const matrix::Eulerf euler_angles(R);
 
@@ -892,37 +869,67 @@ void FixedwingAttitudeControl::run()
 			}
 
 			static bool receivedDropCmd = false;
-			if (_pos_sp_triplet.cmdstage==3 && !receivedDropCmd)
+			if (_pos_sp_triplet.tgtidx>=1 && _pos_sp_triplet.tgtidx<=3 && !receivedDropCmd)
 			{
 				receivedDropCmd = true;
-				//mavlink_log_critical(&_mavlink_log_pub, "TODO Drop!!!");
 				
 				mavlink_log_critical(&_mavlink_log_pub, "Drop: %10.7f, %11.7f, %5.2f m, %5.3f Gs", 
 					_global_pos.lat, _global_pos.lon, (double)(_global_pos.alt), (double)groundspeed);
 				mavlink_log_critical(&_mavlink_log_pub, "AS:%5.3f", (double)airspeed);
+
+
+				//todo   target index!!!!!
+			#if _REAL_FLIGHT_
+				tgtLat = tgt3LonLat[_pos_sp_triplet.tgtidx-1][1];
+				tgtLon = tgt3LonLat[_pos_sp_triplet.tgtidx-1][0];
+			#else
+				tgtLat = _global_pos.lat;
+				tgtLon = _global_pos.lon;
+			#endif
+				//debug
+				printf("target: %10.7f, %11.7f\n", _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
+
+				_pos_sp_triplet.tgtidx = 0; //reset value;
 			}
 
-
-			if (receivedDropCmd && _vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED)
+			//Drop calculation
+			if (receivedDropCmd)
 			{
-				receivedDropCmd = false;
+				//send servo command
+				if(_actuators.control[actuator_controls_s::INDEX_FLAPS]<= 0.3f)
+				{
+					float dis2tgt = get_distance_to_next_waypoint(_global_pos.lat, _global_pos.lon, tgtLat, tgtLon);
+					float height  = _global_pos.alt - _parameters.tgt_alt;
+
+					if (height<=0)
+					{
+						mavlink_log_critical(&_mavlink_log_pub, "drop height error");
+						height = 0;
+					}
+
+					if (dis2tgt <= sqrtf(2.0f*height/9.8f)*groundspeed)
+					{
+						_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.5;
+					}
+				}
+	
+
+				if (_vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED)
+					receivedDropCmd = false;
 			}
+			else
+			{
+				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0;
+			}
+
+			
 
 			// Add feed-forward from roll control output to yaw control output
 			// This can be used to counteract the adverse yaw effect when rolling the plane
 			_actuators.control[actuator_controls_s::INDEX_YAW] += _parameters.roll_to_yaw_ff * math::constrain(
 						_actuators.control[actuator_controls_s::INDEX_ROLL], -1.0f, 1.0f);
 
-			//_actuators.control[actuator_controls_s::INDEX_FLAPS] = _flaps_applied;
-			//cai added; todo check;
-			if (receivedDropCmd)
-			{
-				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.5;
-			}
-			else
-			{
-				_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0;
-			}
+
 			_actuators.control[5] = _manual.aux1;
 			_actuators.control[actuator_controls_s::INDEX_AIRBRAKES] = _flaperons_applied;
 			// FIXME: this should use _vcontrol_mode.landing_gear_pos in the future
