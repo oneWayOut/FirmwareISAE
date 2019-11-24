@@ -883,8 +883,8 @@ void FixedwingAttitudeControl::run()
 				tgtLat = tgt3LonLat[_pos_sp_triplet.tgtidx-1][1];
 				tgtLon = tgt3LonLat[_pos_sp_triplet.tgtidx-1][0];
 			#else
-				tgtLat = _global_pos.lat;
-				tgtLon = _global_pos.lon;
+				tgtLat = _pos_sp_triplet.current.lat;
+				tgtLon = _pos_sp_triplet.current.lon;
 			#endif
 				//debug
 				printf("target: %10.7f, %11.7f\n", _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
