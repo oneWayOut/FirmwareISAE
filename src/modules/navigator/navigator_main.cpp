@@ -975,6 +975,14 @@ Navigator::publish_position_setpoint_triplet()
 
 	/* lazily publish the position setpoint triplet only once available */
 	if (_pos_sp_triplet_pub != nullptr) {
+
+		//reset tgtidx if landed or disarmed
+		if(get_vstatus()->arming_state != vehicle_status_s::ARMING_STATE_ARMED ||
+			get_land_detected()->landed) {
+			_pos_sp_triplet.tgtidx = 0;
+		}
+
+
 		orb_publish(ORB_ID(position_setpoint_triplet), _pos_sp_triplet_pub, &_pos_sp_triplet);
 
 	} else {
@@ -1377,6 +1385,12 @@ int Navigator::custom_command(int argc, char *argv[])
 	else if (!strcmp(argv[0], "cmd2"))
 	{
 		get_instance()->setCmdStage('2');
+		return 0;
+	}
+	else if (!strcmp(argv[0], "printalt"))
+	{
+		float alt = get_instance()->get_global_position()->alt;
+		printf("alt = %9.3f\n", (double)alt);
 		return 0;
 	}
 
