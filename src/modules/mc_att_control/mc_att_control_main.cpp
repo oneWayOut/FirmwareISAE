@@ -976,9 +976,9 @@ void MulticopterAttitudeControl::control_fancraft(void)
 		temp1 *= _mix_thrust;
 
 		_actuators.control[1] += temp1;  //aileron1   TODO check sign
-		_actuators.control[2] += temp1;  //aileron2
+		_actuators.control[2] -= temp1;  //aileron2  //2019.11.28 change sign of aileron2,4
 		_actuators.control[4] += temp1;  //aileron3
-		_actuators.control[5] += temp1;  //aileron4
+		_actuators.control[5] -= temp1;  //aileron4
 	}
 	else //disarmed
 	{
