@@ -239,7 +239,7 @@ Mission::on_active()
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout");
 				_navigator->setCmdStage('1');
 			}
-			else if (_current_mission_index == _param_tgtidx_r1.get()+1)
+			else if (_current_mission_index == _param_tgtidx_r1.get()+4)
 			{
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout");
 				_navigator->setCmdStage('2');

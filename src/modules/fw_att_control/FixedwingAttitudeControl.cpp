@@ -39,14 +39,14 @@
 using namespace time_literals;
 
 
-#define _REAL_FLIGHT_ 0
+#define _REAL_FLIGHT_ 1
 
 #if _REAL_FLIGHT_
 static const double tgt3LonLat[3][2] = {
-	{0, 0},
-	{0, 0},
-	{0, 0}
-}
+	{109.3825082, 34.6750615},
+	{109.3823006, 34.6750394},
+	{109.3820794, 34.6750163}
+};
 #endif
 
 
