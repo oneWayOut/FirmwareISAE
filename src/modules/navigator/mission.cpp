@@ -174,6 +174,7 @@ Mission::on_activation()
 	_navigator->publish_vehicle_cmd(&cmd);
 }
 
+
 void
 Mission::on_active()
 {
@@ -1634,6 +1635,16 @@ Mission::set_current_mission_item()
 	save_mission_state();
 }
 
+
+void Mission::setDropTgt(void)
+{
+	MissionFeasibilityChecker _missionFeasibilityChecker(_navigator);
+
+	_missionFeasibilityChecker.checkMissionItemValidity(_mission,
+				_param_tgtidx_r2.get());
+}
+
+
 void
 Mission::check_mission_valid(bool force)
 {
@@ -1645,7 +1656,8 @@ Mission::check_mission_valid(bool force)
 			_missionFeasibilityChecker.checkMissionFeasible(_mission,
 					_param_mis_dist_1wp.get(),
 					_param_mis_dist_wps.get(),
-					_navigator->mission_landing_required());
+					_navigator->mission_landing_required(),
+					_param_tgtidx_r2.get());
 
 		_navigator->get_mission_result()->seq_total = _mission.count;
 		_navigator->increment_mission_instance_count();

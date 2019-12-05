@@ -42,7 +42,7 @@ using namespace time_literals;
 #define _REAL_FLIGHT_ 1
 
 #if _REAL_FLIGHT_
-static const double tgt3LonLat[3][2] = {
+static  double tgt3LonLat[3][2] = {
 	{109.3825082, 34.6750615},
 	{109.3823006, 34.6750394},
 	{109.3820794, 34.6750163}
@@ -52,6 +52,10 @@ static const double tgt3LonLat[3][2] = {
 
 static double tgtLon = 0;
 static double tgtLat = 0;
+
+
+extern void getTgtLonLat(double * pDbl);
+
 
 /**
  * Fixedwing attitude control app start / stop handling function
@@ -878,8 +882,10 @@ void FixedwingAttitudeControl::run()
 				mavlink_log_critical(&_mavlink_log_pub, "AS:%5.3f", (double)airspeed);
 
 
-				//todo   target index!!!!!
 			#if _REAL_FLIGHT_
+
+				getTgtLonLat(tgt3LonLat[0]);
+
 				tgtLat = tgt3LonLat[_pos_sp_triplet.tgtidx-1][1];
 				tgtLon = tgt3LonLat[_pos_sp_triplet.tgtidx-1][0];
 			#else
@@ -887,10 +893,34 @@ void FixedwingAttitudeControl::run()
 				tgtLon = _pos_sp_triplet.current.lon;
 			#endif
 				//debug
-				printf("target: %10.7f, %11.7f\n", _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
+				printf("target: %10.7f, %11.7f\n", tgtLat, tgtLon);
 
 				_pos_sp_triplet.tgtidx = 0; //reset value;
 			}
+
+			#if 0  //TODO delete Just for debug;
+			static unsigned int myCounter = 0;
+
+			if (myCounter%1000 == 0)
+			{
+				getTgtLonLat(tgt3LonLat[0]);
+
+				for (int i = 0; i < 3; ++i)
+				{
+					tgtLat = tgt3LonLat[i][1];
+					tgtLon = tgt3LonLat[i][0];
+
+					printf("target: %11.7f, %10.7f\n", tgtLon, tgtLat);
+				}
+
+				
+
+				myCounter = 0;
+			}
+
+			myCounter++;
+
+			#endif
 
 			//Drop calculation
 			if (receivedDropCmd)

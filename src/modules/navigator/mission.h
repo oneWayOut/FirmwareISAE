@@ -99,6 +99,8 @@ public:
 	 * For a list of the different modes refer to mission_result.msg
 	 */
 	void set_execution_mode(const uint8_t mode);
+
+	void setDropTgt(void);
 private:
 
 	/**

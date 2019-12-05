@@ -221,6 +221,8 @@ Navigator::params_update()
 	if (_handle_reverse_delay != PARAM_INVALID) {
 		param_get(_handle_reverse_delay, &_param_reverse_delay);
 	}
+
+	_mission.setDropTgt();
 }
 
 void
@@ -1391,6 +1393,12 @@ int Navigator::custom_command(int argc, char *argv[])
 	{
 		float alt = get_instance()->get_global_position()->alt;
 		printf("alt = %9.3f\n", (double)alt);
+		return 0;
+	}
+	else if (!strcmp(argv[0], "settgt"))
+	{
+		get_instance()->_mission.setDropTgt();
+
 		return 0;
 	}
 

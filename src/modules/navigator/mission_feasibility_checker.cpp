@@ -56,7 +56,7 @@
 bool
 MissionFeasibilityChecker::checkMissionFeasible(const mission_s &mission,
 		float max_distance_to_1st_waypoint, float max_distance_between_waypoints,
-		bool land_start_req)
+		bool land_start_req, int tgtidx)
 {
 	bool failed = false;
 	bool warned = false;
@@ -77,7 +77,7 @@ MissionFeasibilityChecker::checkMissionFeasible(const mission_s &mission,
 	const float home_alt = _navigator->get_home_position()->alt;
 
 	// check if all mission item commands are supported
-	failed = failed || !checkMissionItemValidity(mission);
+	failed = failed || !checkMissionItemValidity(mission, tgtidx);
 	failed = failed || !checkDistancesBetweenWaypoints(mission, max_distance_between_waypoints);
 	failed = failed || !checkGeofence(mission, home_alt, home_valid);
 	failed = failed || !checkHomePositionAltitude(mission, home_alt, home_alt_valid, warned);
@@ -203,9 +203,20 @@ MissionFeasibilityChecker::checkHomePositionAltitude(const mission_s &mission, f
 	return true;
 }
 
-bool
-MissionFeasibilityChecker::checkMissionItemValidity(const mission_s &mission)
+//TODO set target lon lat in the function; check the index of item; use the param 
+static double tgt3LonLat[3][2] = {{1,2},{3,4}, {5, 6}};
+
+void getTgtLonLat(double * pDbl)
 {
+	memcpy(pDbl, tgt3LonLat, sizeof(double)*6);
+}
+
+bool
+MissionFeasibilityChecker::checkMissionItemValidity(const mission_s &mission, int tgtidx)
+{
+	mavlink_log_critical(_navigator->get_mavlink_log_pub(), "CAI set tgt");
+
+	printf("cnt,idx = %d, %d\n", (int)(mission.count), tgtidx);
 	// do not allow mission if we find unsupported item
 	for (size_t i = 0; i < mission.count; i++) {
 		struct mission_item_s missionitem;
@@ -216,6 +227,18 @@ MissionFeasibilityChecker::checkMissionItemValidity(const mission_s &mission)
 			mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: Cannot access SD card");
 			return false;
 		}
+
+		for (int jx = 0; jx < 3; ++jx)
+		{
+			if ((int)i == (tgtidx+jx-1))
+			{
+				tgt3LonLat[jx][0] = missionitem.lon;
+				tgt3LonLat[jx][1] = missionitem.lat;
+
+				printf("mission target: %11.7f, %10.7f\n", tgt3LonLat[jx][0], tgt3LonLat[jx][1]);
+			}
+		}
+
 
 		// check if we find unsupported items and reject mission if so
 		if (missionitem.nav_cmd != NAV_CMD_IDLE &&
