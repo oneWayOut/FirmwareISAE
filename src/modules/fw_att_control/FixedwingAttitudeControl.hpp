@@ -217,6 +217,7 @@ private:
 		bool airspeed_disabled;
 
 		float tgt_alt;
+		float drop_offset;
 
 	} _parameters{};			/**< local copies of interesting parameters */
 
@@ -286,6 +287,7 @@ private:
 		param_t bat_scale_en;
 		param_t airspeed_mode;
 		param_t tgt_alt;  //cai added
+		param_t drop_offset;
 	} _parameter_handles{};		/**< handles for interesting parameters */
 
 	ECL_RollController				_roll_ctrl;

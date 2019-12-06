@@ -761,3 +761,14 @@ PARAM_DEFINE_FLOAT(FW_DTRIM_P_FLPS, 0.0f);
  * @group CAI_CUSTOM
  */
 PARAM_DEFINE_FLOAT(DROP_TGT_ALT, 381.0f);
+
+
+/**
+ * drop offset along drop track;  
+ * positive mean ahead
+ * negative mean lag
+ *
+ * @decimal 2
+ * @group CAI_CUSTOM
+ */
+PARAM_DEFINE_FLOAT(DROP_OFFSET, 4.50f);

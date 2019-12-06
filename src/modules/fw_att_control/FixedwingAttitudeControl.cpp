@@ -143,6 +143,7 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_parameter_handles.airspeed_mode = param_find("FW_ARSP_MODE");
 
 	_parameter_handles.tgt_alt = param_find("DROP_TGT_ALT");
+	_parameter_handles.drop_offset = param_find("DROP_OFFSET");
 
 	/* fetch initial parameter values */
 	parameters_update();
@@ -192,6 +193,7 @@ FixedwingAttitudeControl::parameters_update()
 	int32_t tmp = 0;
 
 	param_get(_parameter_handles.tgt_alt, &(_parameters.tgt_alt));
+	param_get(_parameter_handles.drop_offset, &(_parameters.drop_offset));
 
 
 	param_get(_parameter_handles.p_tc, &(_parameters.p_tc));
@@ -898,29 +900,6 @@ void FixedwingAttitudeControl::run()
 				_pos_sp_triplet.tgtidx = 0; //reset value;
 			}
 
-			#if 0  //TODO delete Just for debug;
-			static unsigned int myCounter = 0;
-
-			if (myCounter%1000 == 0)
-			{
-				getTgtLonLat(tgt3LonLat[0]);
-
-				for (int i = 0; i < 3; ++i)
-				{
-					tgtLat = tgt3LonLat[i][1];
-					tgtLon = tgt3LonLat[i][0];
-
-					printf("target: %11.7f, %10.7f\n", tgtLon, tgtLat);
-				}
-
-				
-
-				myCounter = 0;
-			}
-
-			myCounter++;
-
-			#endif
 
 			//Drop calculation
 			if (receivedDropCmd)
@@ -937,7 +916,7 @@ void FixedwingAttitudeControl::run()
 						height = 0;
 					}
 
-					if (dis2tgt <= sqrtf(2.0f*height/9.8f)*groundspeed)
+					if (dis2tgt <= sqrtf(2.0f*height/9.8f)*groundspeed + _parameters.drop_offset)
 					{
 						_actuators.control[actuator_controls_s::INDEX_FLAPS] = 0.5;
 					}
