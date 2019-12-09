@@ -235,22 +235,42 @@ Mission::on_active()
 						     (double)(dist_z - max_vertical_distance));*/
 
 
-			if (_current_mission_index == _param_tgtidx_r1.get())
+			if (_current_mission_index == _param_scout_r1.get())
 			{
-				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout");
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout r1");
 				_navigator->setCmdStage('1');
 			}
-			else if (_current_mission_index == _param_tgtidx_r1.get()+4)
+			else if (_current_mission_index == _param_scout_r1.get()+1)
 			{
-				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout");
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout r1");
 				_navigator->setCmdStage('2');
 			}
-			else if (_current_mission_index == _param_tgtidx_r2.get()-1)
+			else if (_current_mission_index == _param_scout_r2.get() && _navigator->getTgtIdx() == 0)
 			{
-				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Ready drop target");
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "begin scout r2");
+				_navigator->setCmdStage('1');
+			}
+			else if (_current_mission_index == _param_scout_r2.get()+1  && _navigator->getTgtIdx() == 0)
+			{
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "stop scout r2");
+				_navigator->setCmdStage('2');
+			}
+			else if (_current_mission_index == _param_tgtidx.get()-1)
+			{
 
 				position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
-				pos_sp_triplet->tgtidx = _navigator->getTgtIdx();
+
+				if (_navigator->getTgtIdx() == 0)
+				{
+					pos_sp_triplet->tgtidx = 4;
+					mavlink_log_critical(_navigator->get_mavlink_log_pub(), "no target");
+				}
+				else
+				{
+					pos_sp_triplet->tgtidx = _navigator->getTgtIdx();
+					mavlink_log_critical(_navigator->get_mavlink_log_pub(), "ready drop");
+				}
+
 			}
 			else
 			{
@@ -1636,12 +1656,15 @@ Mission::set_current_mission_item()
 }
 
 
+/**
+ * [Mission::setDropTgt set drop target lon and lat]
+ */
 void Mission::setDropTgt(void)
 {
 	MissionFeasibilityChecker _missionFeasibilityChecker(_navigator);
 
 	_missionFeasibilityChecker.checkMissionItemValidity(_mission,
-				_param_tgtidx_r2.get());
+				_param_tgtidx.get());
 }
 
 
@@ -1657,7 +1680,7 @@ Mission::check_mission_valid(bool force)
 					_param_mis_dist_1wp.get(),
 					_param_mis_dist_wps.get(),
 					_navigator->mission_landing_required(),
-					_param_tgtidx_r2.get());
+					_param_tgtidx.get());
 
 		_navigator->get_mission_result()->seq_total = _mission.count;
 		_navigator->increment_mission_instance_count();

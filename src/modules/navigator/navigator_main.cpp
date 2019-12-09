@@ -143,7 +143,7 @@ Navigator::Navigator() :
 	reset_triplets();
 
 	//1, 2 or 3; set an default value to 2, the second one, in case target not found;
-	_tgtIdx = 1;  //TODO set to 2;
+	_tgtIdx = 0;  //TODO set to 2;
 
 
 	_pos_sp_triplet.tgtidx = 0;
@@ -982,6 +982,7 @@ Navigator::publish_position_setpoint_triplet()
 		if(get_vstatus()->arming_state != vehicle_status_s::ARMING_STATE_ARMED ||
 			get_land_detected()->landed) {
 			_pos_sp_triplet.tgtidx = 0;
+			_tgtIdx = 0;
 		}
 
 

@@ -176,24 +176,32 @@ PARAM_DEFINE_FLOAT(MIS_YAW_ERR, 12.0f);
 
 
 /**
- * begin target waypoint index in round one; 
- *
- * we have 3 targets,  this index is the first one;
+ * begin scout  waypoint index in round one; 
  *
  * @min 1
  * @max 99
  * @group CAI_CUSTOM
  */
-PARAM_DEFINE_INT32(DROP_TGTIDX_R1, 1);
+PARAM_DEFINE_INT32(DROP_SCOUT_R1, 1);
 
 
 /**
- * begin target waypoint index in round ｔｗｏ; 
- *
- * we have 3 targets,  this index is the first one;
+ * begin scout  waypoint index in round ｔｗｏ; 
  *
  * @min 1
  * @max 99
  * @group CAI_CUSTOM
  */
-PARAM_DEFINE_INT32(DROP_TGTIDX_R2, 1);
+PARAM_DEFINE_INT32(DROP_SCOUT_R2, 1);
+
+
+/**
+ * begin drop target waypoint index; 
+ *
+ * we have 3 targets,  this index is the point before the first one;
+ *
+ * @min 1
+ * @max 99
+ * @group CAI_CUSTOM
+ */
+PARAM_DEFINE_INT32(DROP_TGTIDX, 1);

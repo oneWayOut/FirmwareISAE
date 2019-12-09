@@ -875,7 +875,7 @@ void FixedwingAttitudeControl::run()
 			}
 
 			static bool receivedDropCmd = false;
-			if (_pos_sp_triplet.tgtidx>=1 && _pos_sp_triplet.tgtidx<=3 && !receivedDropCmd)
+			if (_pos_sp_triplet.tgtidx>=1 && _pos_sp_triplet.tgtidx<=4 && !receivedDropCmd)
 			{
 				receivedDropCmd = true;
 				
@@ -888,8 +888,17 @@ void FixedwingAttitudeControl::run()
 
 				getTgtLonLat(tgt3LonLat[0]);
 
-				tgtLat = tgt3LonLat[_pos_sp_triplet.tgtidx-1][1];
-				tgtLon = tgt3LonLat[_pos_sp_triplet.tgtidx-1][0];
+				if (_pos_sp_triplet.tgtidx==4)
+				{
+					tgtLat = (tgt3LonLat[0][1] + tgt3LonLat[1][1])*0.5;
+					tgtLon = (tgt3LonLat[0][0] + tgt3LonLat[1][0])*0.5;
+				}
+				else
+				{
+					tgtLat = tgt3LonLat[_pos_sp_triplet.tgtidx-1][1];
+					tgtLon = tgt3LonLat[_pos_sp_triplet.tgtidx-1][0];
+				}
+
 			#else
 				tgtLat = _pos_sp_triplet.current.lat;
 				tgtLon = _pos_sp_triplet.current.lon;
