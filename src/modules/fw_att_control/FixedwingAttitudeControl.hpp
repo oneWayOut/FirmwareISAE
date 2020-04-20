@@ -299,4 +299,8 @@ private:
 	void		vehicle_land_detected_poll();
 
 	float 		get_airspeed_and_update_scaling();
+
+
+	//cai added below
+	float manualRoll, manualPitch, manualYaw, manualThrottle;
 };

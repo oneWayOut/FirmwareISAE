@@ -371,6 +371,12 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 					_actuators.control[actuator_controls_s::INDEX_THROTTLE] = _manual.z;
 				}
 			}
+
+
+			manualRoll     = _manual.y * _parameters.man_roll_scale + _parameters.trim_roll;
+			manualPitch    = -_manual.x * _parameters.man_pitch_scale + _parameters.trim_pitch;
+			manualYaw      = _manual.r * _parameters.man_yaw_scale + _parameters.trim_yaw;
+			manualThrottle = _manual.z;
 		}
 	}
 }
@@ -565,49 +571,6 @@ void FixedwingAttitudeControl::run()
 			/* get current rotation matrix and euler angles from control state quaternions */
 			matrix::Dcmf R = matrix::Quatf(_att.q);
 
-			if (_is_tailsitter) {
-				/* vehicle is a tailsitter, we need to modify the estimated attitude for fw mode
-				 *
-				 * Since the VTOL airframe is initialized as a multicopter we need to
-				 * modify the estimated attitude for the fixed wing operation.
-				 * Since the neutral position of the vehicle in fixed wing mode is -90 degrees rotated around
-				 * the pitch axis compared to the neutral position of the vehicle in multicopter mode
-				 * we need to swap the roll and the yaw axis (1st and 3rd column) in the rotation matrix.
-				 * Additionally, in order to get the correct sign of the pitch, we need to multiply
-				 * the new x axis of the rotation matrix with -1
-				 *
-				 * original:			modified:
-				 *
-				 * Rxx  Ryx  Rzx		-Rzx  Ryx  Rxx
-				 * Rxy	Ryy  Rzy		-Rzy  Ryy  Rxy
-				 * Rxz	Ryz  Rzz		-Rzz  Ryz  Rxz
-				 * */
-				matrix::Dcmf R_adapted = R;		//modified rotation matrix
-
-				/* move z to x */
-				R_adapted(0, 0) = R(0, 2);
-				R_adapted(1, 0) = R(1, 2);
-				R_adapted(2, 0) = R(2, 2);
-
-				/* move x to z */
-				R_adapted(0, 2) = R(0, 0);
-				R_adapted(1, 2) = R(1, 0);
-				R_adapted(2, 2) = R(2, 0);
-
-				/* change direction of pitch (convert to right handed system) */
-				R_adapted(0, 0) = -R_adapted(0, 0);
-				R_adapted(1, 0) = -R_adapted(1, 0);
-				R_adapted(2, 0) = -R_adapted(2, 0);
-
-				/* fill in new attitude data */
-				R = R_adapted;
-
-				/* lastly, roll- and yawspeed have to be swaped */
-				float helper = _att.rollspeed;
-				_att.rollspeed = -_att.yawspeed;
-				_att.yawspeed = helper;
-			}
-
 			const matrix::Eulerf euler_angles(R);
 
 			vehicle_attitude_setpoint_poll();
@@ -624,13 +587,6 @@ void FixedwingAttitudeControl::run()
 			/* lock integrator until control is started */
 			bool lock_integrator = !_vcontrol_mode.flag_control_rates_enabled || _vehicle_status.is_rotary_wing;
 
-			/* Simple handling of failsafe: deploy parachute if failsafe is on */
-			if (_vcontrol_mode.flag_control_termination_enabled) {
-				_actuators_airframe.control[7] = 1.0f;
-
-			} else {
-				_actuators_airframe.control[7] = 0.0f;
-			}
 
 			/* if we are in rotary wing mode, do nothing */
 			if (_vehicle_status.is_rotary_wing && !_vehicle_status.is_vtol) {
@@ -641,6 +597,7 @@ void FixedwingAttitudeControl::run()
 
 			/* decide if in stabilized or full manual control */
 			if (_vcontrol_mode.flag_control_rates_enabled) {
+				//CAI NOTE :  here is in stabilized (STAB, AUTO) control
 
 				const float airspeed = get_airspeed_and_update_scaling();
 
@@ -879,11 +836,60 @@ void FixedwingAttitudeControl::run()
 			_actuators.control[actuator_controls_s::INDEX_YAW] += _parameters.roll_to_yaw_ff * math::constrain(
 						_actuators.control[actuator_controls_s::INDEX_ROLL], -1.0f, 1.0f);
 
-			_actuators.control[actuator_controls_s::INDEX_FLAPS] = _flaps_applied;
-			_actuators.control[5] = _manual.aux1;
-			_actuators.control[actuator_controls_s::INDEX_AIRBRAKES] = _flaperons_applied;
-			// FIXME: this should use _vcontrol_mode.landing_gear_pos in the future
-			_actuators.control[7] = _manual.aux3;
+			if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_MANUAL)
+			{
+				manualYaw = _actuators.control[actuator_controls_s::INDEX_YAW];
+			}
+
+
+
+
+
+
+			switch (_vehicle_status.nav_state)
+			{
+			//manual mode control
+			case vehicle_status_s::NAVIGATION_STATE_MANUAL:
+				_actuators.control[0] = manualPitch;
+				_actuators.control[1] = manualPitch;
+				_actuators.control[2] = -manualPitch;
+				_actuators.control[3] = -manualPitch;
+				_actuators.control[4] = manualRoll;
+				_actuators.control[5] = manualRoll;
+				_actuators.control[6] = -manualRoll;
+				_actuators.control[7] = -manualRoll;
+
+				//just for passing  compile
+				manualRoll = manualYaw;
+				manualPitch = manualThrottle;				
+				break;
+			case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
+				break;
+			default :  //default to Stabilized mode control
+				float ctrlRoll, ctrlPitch, ctrlYaw; //, ctrlThrottle;
+
+				ctrlRoll      =  _actuators.control[actuator_controls_s::INDEX_ROLL];
+				ctrlPitch     =  _actuators.control[actuator_controls_s::INDEX_PITCH];
+				ctrlYaw       =  _actuators.control[actuator_controls_s::INDEX_YAW];
+				//ctrlThrottle  =  _actuators.control[actuator_controls_s::INDEX_THROTTLE];
+
+				_actuators.control[0] = (manualPitch + ctrlRoll)/2;
+				_actuators.control[1] = (manualPitch + ctrlRoll)/2;
+
+				_actuators.control[2] = (ctrlPitch + ctrlRoll)/2;
+				_actuators.control[3] = (ctrlPitch + ctrlRoll)/2;
+
+				_actuators.control[4] = manualRoll;
+				_actuators.control[5] = manualRoll;
+
+				_actuators.control[6] = (manualYaw + ctrlYaw)/2;
+				_actuators.control[7] = (manualYaw + ctrlYaw)/2;
+				break;
+			}
+
+
+
+
 
 			/* lazily publish the setpoint only once available */
 			_actuators.timestamp = hrt_absolute_time();
