@@ -120,7 +120,9 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_parameter_handles.rattitude_thres = param_find("FW_RATT_TH");
 
 	_parameter_handles.bat_scale_en = param_find("FW_BAT_SCALE_EN");
-	_parameter_handles.airspeed_mode = param_find("FW_ARSP_MODE");
+
+	_parameter_handles.k_updown = param_find("TYT_K_UPDOWN");
+	_parameter_handles.k_sideway = param_find("TYT_K_SIDEWAY");
 
 	/* fetch initial parameter values */
 	parameters_update();
@@ -244,6 +246,10 @@ FixedwingAttitudeControl::parameters_update()
 	param_get(_parameter_handles.bat_scale_en, &_parameters.bat_scale_en);
 
 	param_get(_parameter_handles.airspeed_mode, &tmp);
+
+	param_get(_parameter_handles.k_updown, &_parameters.k_updown);
+	param_get(_parameter_handles.k_sideway, &_parameters.k_sideway);
+
 	_parameters.airspeed_disabled = (tmp == 1);
 
 	/* pitch control parameters */
@@ -350,7 +356,7 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 					_rates_sp.timestamp = hrt_absolute_time();
 					_rates_sp.roll = _manual.y * _parameters.acro_max_x_rate_rad;
 					_rates_sp.pitch = -_manual.x * _parameters.acro_max_y_rate_rad;
-					_rates_sp.yaw = _manual.r * _parameters.acro_max_z_rate_rad;
+					_rates_sp.yaw = 0; //_manual.r * _parameters.acro_max_z_rate_rad;
 					_rates_sp.thrust_body[0] = _manual.z;
 
 					if (_rate_sp_pub != nullptr) {
@@ -739,10 +745,10 @@ void FixedwingAttitudeControl::run()
 
 						_actuators.control[actuator_controls_s::INDEX_YAW] = (PX4_ISFINITE(yaw_u)) ? yaw_u + trim_yaw : trim_yaw;
 
-						/* add in manual rudder control in manual modes */
-						if (_vcontrol_mode.flag_control_manual_enabled) {
-							_actuators.control[actuator_controls_s::INDEX_YAW] += _manual.r;
-						}
+						/* add in manual rudder control in manual modes */ //cai commented
+						// if (_vcontrol_mode.flag_control_manual_enabled) {
+						// 	_actuators.control[actuator_controls_s::INDEX_YAW] += _manual.r;
+						// }
 
 						if (!PX4_ISFINITE(yaw_u)) {
 							_yaw_ctrl.reset_integrator();
@@ -848,20 +854,30 @@ void FixedwingAttitudeControl::run()
 
 			switch (_vehicle_status.nav_state)
 			{
-			//manual mode control
+			//manual mode control, control position
 			case vehicle_status_s::NAVIGATION_STATE_MANUAL:
 				_actuators.control[0] = manualPitch;
-				_actuators.control[1] = manualPitch;
-				_actuators.control[2] = -manualPitch;
-				_actuators.control[3] = -manualPitch;
+				_actuators.control[1] = -manualPitch;
+				_actuators.control[2] = _parameters.k_updown * manualPitch;
+				_actuators.control[3] = -_parameters.k_updown * manualPitch;
 				_actuators.control[4] = manualRoll;
 				_actuators.control[5] = manualRoll;
-				_actuators.control[6] = -manualRoll;
-				_actuators.control[7] = -manualRoll;
+				_actuators.control[6] = _parameters.k_sideway * manualRoll;
+				_actuators.control[7] = _parameters.k_sideway * manualRoll;
 
 				//just for passing  compile
-				manualRoll = manualYaw;
 				manualPitch = manualThrottle;				
+				break;
+			//manual control attitude
+			case vehicle_status_s::NAVIGATION_STATE_RATTITUDE:
+				_actuators.control[0] = manualRoll;
+				_actuators.control[1] = manualRoll;
+				_actuators.control[2] = (manualRoll - manualPitch)/2;
+				_actuators.control[3] = (manualRoll + manualPitch)/2;
+				_actuators.control[4] = 0;
+				_actuators.control[5] = 0;
+				_actuators.control[6] = -manualYaw;
+				_actuators.control[7] = -manualYaw;
 				break;
 			case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
 				break;
@@ -874,16 +890,16 @@ void FixedwingAttitudeControl::run()
 				//ctrlThrottle  =  _actuators.control[actuator_controls_s::INDEX_THROTTLE];
 
 				_actuators.control[0] = (manualPitch + ctrlRoll)/2;
-				_actuators.control[1] = (manualPitch + ctrlRoll)/2;
+				_actuators.control[1] = (-manualPitch + ctrlRoll)/2;
 
-				_actuators.control[2] = (ctrlPitch + ctrlRoll)/2;
+				_actuators.control[2] = (-ctrlPitch + ctrlRoll)/2;
 				_actuators.control[3] = (ctrlPitch + ctrlRoll)/2;
 
 				_actuators.control[4] = manualRoll;
 				_actuators.control[5] = manualRoll;
 
-				_actuators.control[6] = (manualYaw + ctrlYaw)/2;
-				_actuators.control[7] = (manualYaw + ctrlYaw)/2;
+				_actuators.control[6] = -ctrlYaw;
+				_actuators.control[7] = -ctrlYaw;
 				break;
 			}
 

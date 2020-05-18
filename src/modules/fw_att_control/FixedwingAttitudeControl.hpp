@@ -208,6 +208,8 @@ private:
 		int32_t bat_scale_en;			/**< Battery scaling enabled */
 		bool airspeed_disabled;
 
+		float k_updown;       //cai add
+		float k_sideway;
 	} _parameters{};			/**< local copies of interesting parameters */
 
 	struct {
@@ -276,6 +278,8 @@ private:
 		param_t bat_scale_en;
 		param_t airspeed_mode;
 
+		param_t k_updown;
+		param_t k_sideway;
 	} _parameter_handles{};		/**< handles for interesting parameters */
 
 	ECL_RollController				_roll_ctrl;
