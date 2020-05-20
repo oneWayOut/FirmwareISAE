@@ -1859,6 +1859,8 @@ FixedwingPositionControl::run()
 				    _control_mode.flag_control_velocity_enabled ||
 				    _control_mode.flag_control_acceleration_enabled) {
 
+					_att_sp.xtrack_error = _l1_control.crosstrack_error();  //cai added
+
 					/* lazily publish the setpoint only once available */
 					if (_attitude_sp_pub != nullptr) {
 						/* publish the attitude setpoint */

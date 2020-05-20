@@ -61,6 +61,8 @@
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
 
+#include <uORB/topics/distance_sensor.h>
+
 using matrix::Eulerf;
 using matrix::Quatf;
 
@@ -102,6 +104,7 @@ private:
 	int		_vcontrol_mode_sub{-1};			/**< vehicle status subscription */
 	int		_vehicle_land_detected_sub{-1};		/**< vehicle land detected subscription */
 	int		_vehicle_status_sub{-1};		/**< vehicle status subscription */
+	int     _distance_sensor_sub{-1};         //range finder
 
 	orb_advert_t	_rate_sp_pub{nullptr};			/**< rate setpoint publication */
 	orb_advert_t	_attitude_sp_pub{nullptr};		/**< attitude setpoint point */
@@ -121,6 +124,7 @@ private:
 	vehicle_global_position_s		_global_pos {};		/**< global position */
 	vehicle_rates_setpoint_s		_rates_sp {};		/* attitude rates setpoint */
 	vehicle_status_s			_vehicle_status {};	/**< vehicle status */
+	distance_sensor_s           _distance_sensor {};
 
 	Subscription<airspeed_s>			_airspeed_sub;
 

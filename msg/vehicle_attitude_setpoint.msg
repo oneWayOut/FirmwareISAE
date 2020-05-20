@@ -6,6 +6,8 @@ float32 yaw_body		# body angle in NED frame (can be NaN for FW)
 
 float32 yaw_sp_move_rate	# rad/s (commanded by user)
 
+float32 xtrack_error      # cai added
+
 # For quaternion-based attitude control
 float32[4] q_d			# Desired quaternion for quaternion control
 bool q_d_valid			# Set to true if quaternion vector is valid

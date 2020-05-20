@@ -144,6 +144,7 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_vehicle_land_detected_sub = orb_subscribe(ORB_ID(vehicle_land_detected));
 	_battery_status_sub = orb_subscribe(ORB_ID(battery_status));
 	_rates_sp_sub = orb_subscribe(ORB_ID(vehicle_rates_setpoint));
+	_distance_sensor_sub = orb_subscribe(ORB_ID(distance_sensor));
 }
 
 FixedwingAttitudeControl::~FixedwingAttitudeControl()
@@ -158,6 +159,7 @@ FixedwingAttitudeControl::~FixedwingAttitudeControl()
 	orb_unsubscribe(_vehicle_land_detected_sub);
 	orb_unsubscribe(_battery_status_sub);
 	orb_unsubscribe(_rates_sp_sub);
+	orb_unsubscribe(_distance_sensor_sub);
 
 	perf_free(_loop_perf);
 	perf_free(_nonfinite_input_perf);
@@ -387,6 +389,8 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 	}
 }
 
+
+//cai add distance sensor poll
 void
 FixedwingAttitudeControl::vehicle_attitude_setpoint_poll()
 {
@@ -401,6 +405,16 @@ FixedwingAttitudeControl::vehicle_attitude_setpoint_poll()
 			_rates_sp.thrust_body[2] = _att_sp.thrust_body[2];
 		}
 	}
+
+
+	//read distance sensor 
+	orb_check(_distance_sensor_sub, &updated);
+
+	if (updated)
+	{
+		orb_copy(ORB_ID(distance_sensor), _distance_sensor_sub, &_distance_sensor);
+	}
+
 }
 
 void
@@ -849,7 +863,11 @@ void FixedwingAttitudeControl::run()
 
 
 
+			float ctrlRoll, ctrlPitch, ctrlYaw; //, ctrlThrottle;
 
+			ctrlRoll      =  _actuators.control[actuator_controls_s::INDEX_ROLL];
+			ctrlPitch     =  _actuators.control[actuator_controls_s::INDEX_PITCH];
+			ctrlYaw       =  _actuators.control[actuator_controls_s::INDEX_YAW];
 
 
 			switch (_vehicle_status.nav_state)
@@ -880,15 +898,10 @@ void FixedwingAttitudeControl::run()
 				_actuators.control[7] = -manualYaw;
 				break;
 			case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
+
+				
 				break;
 			default :  //default to Stabilized mode control
-				float ctrlRoll, ctrlPitch, ctrlYaw; //, ctrlThrottle;
-
-				ctrlRoll      =  _actuators.control[actuator_controls_s::INDEX_ROLL];
-				ctrlPitch     =  _actuators.control[actuator_controls_s::INDEX_PITCH];
-				ctrlYaw       =  _actuators.control[actuator_controls_s::INDEX_YAW];
-				//ctrlThrottle  =  _actuators.control[actuator_controls_s::INDEX_THROTTLE];
-
 				_actuators.control[0] = (manualPitch + ctrlRoll)/2;
 				_actuators.control[1] = (-manualPitch + ctrlRoll)/2;
 
