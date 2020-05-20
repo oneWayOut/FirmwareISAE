@@ -776,3 +776,88 @@ PARAM_DEFINE_FLOAT(TYT_K_UPDOWN, 1.0f);
  * @increment 0.01
  */
 PARAM_DEFINE_FLOAT(TYT_K_SIDEWAY, 1.0f);
+
+
+/**
+ * target height above ground in meter
+ * @group TYT control
+ * @min 0
+ * @max 10
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_HEIGHT, 1.0f);
+
+
+/**
+ * target heading  in degree 0~360
+ * @group TYT control
+ * @min 0
+ * @max 360
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_HEADING, 0.0f);
+
+
+/**
+ * cross track error Proportion gain
+ * @group TYT control
+ * @min 0
+ * @max 360
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_P_XTK, 0.0f);
+
+/**
+ * cross track error Integration gain
+ * @group TYT control
+ * @min 0
+ * @max 360
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_I_XTK, 0.0f);
+
+/**
+ * cross track error Differential gain
+ * @group TYT control
+ * @min 0
+ * @max 360
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_D_XTK, 0.0f);
+
+
+
+/**
+ * Heading error Proportion gain
+ * @group TYT control
+ * @min 0
+ * @max 360
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_P_HEADING, 0.0f);
+
+/**
+ * Heading error Integration gain
+ * @group TYT control
+ * @min 0
+ * @max 360
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_I_HEADING, 0.0f);
+
+/**
+ * Heading error Differential gain
+ * @group TYT control
+ * @min 0
+ * @max 360
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_D_HEADING, 0.0f);

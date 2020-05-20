@@ -123,6 +123,14 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 
 	_parameter_handles.k_updown = param_find("TYT_K_UPDOWN");
 	_parameter_handles.k_sideway = param_find("TYT_K_SIDEWAY");
+	_parameter_handles.height = param_find("TYT_HEIGHT");
+	_parameter_handles.heading = param_find("TYT_HEADING");
+	_parameter_handles.p_xtk = param_find("TYT_P_XTK");
+	_parameter_handles.i_xtk = param_find("TYT_I_XTK");
+	_parameter_handles.d_xtk = param_find("TYT_D_XTK");
+	_parameter_handles.p_heading = param_find("TYT_P_HEADING");
+	_parameter_handles.i_heading = param_find("TYT_I_HEADING");
+	_parameter_handles.d_heading = param_find("TYT_D_HEADING");
 
 	/* fetch initial parameter values */
 	parameters_update();
@@ -251,6 +259,14 @@ FixedwingAttitudeControl::parameters_update()
 
 	param_get(_parameter_handles.k_updown, &_parameters.k_updown);
 	param_get(_parameter_handles.k_sideway, &_parameters.k_sideway);
+	param_get(_parameter_handles.height, &_parameters.height);
+	param_get(_parameter_handles.heading, &_parameters.heading);
+	param_get(_parameter_handles.p_xtk, &_parameters.p_xtk);
+	param_get(_parameter_handles.i_xtk, &_parameters.i_xtk);
+	param_get(_parameter_handles.d_xtk, &_parameters.d_xtk);
+	param_get(_parameter_handles.p_heading, &_parameters.p_heading);
+	param_get(_parameter_handles.i_heading, &_parameters.i_heading);
+	param_get(_parameter_handles.d_heading, &_parameters.d_heading);
 
 	_parameters.airspeed_disabled = (tmp == 1);
 
