@@ -5,7 +5,7 @@ float32 nav_pitch
 float32 nav_bearing
 
 float32 target_bearing
-float32 xtrack_error
+float32 xtrack_error   #in meter;
 
 float32 wp_dist
 

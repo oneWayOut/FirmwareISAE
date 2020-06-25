@@ -833,31 +833,31 @@ PARAM_DEFINE_FLOAT(TYT_D_XTK, 0.0f);
 
 
 /**
- * Heading error Proportion gain
+ * Height error Proportion gain
  * @group TYT control
  * @min 0
  * @max 360
  * @decimal 2
  * @increment 0.01
  */
-PARAM_DEFINE_FLOAT(TYT_P_HEADING, 0.0f);
+PARAM_DEFINE_FLOAT(TYT_P_H, 0.0f);
 
 /**
- * Heading error Integration gain
+ * Height error Integration gain
  * @group TYT control
  * @min 0
  * @max 360
  * @decimal 2
  * @increment 0.01
  */
-PARAM_DEFINE_FLOAT(TYT_I_HEADING, 0.0f);
+PARAM_DEFINE_FLOAT(TYT_I_H, 0.0f);
 
 /**
- * Heading error Differential gain
+ * Height error Differential gain
  * @group TYT control
  * @min 0
  * @max 360
  * @decimal 2
  * @increment 0.01
  */
-PARAM_DEFINE_FLOAT(TYT_D_HEADING, 0.0f);
+PARAM_DEFINE_FLOAT(TYT_D_H, 0.0f);

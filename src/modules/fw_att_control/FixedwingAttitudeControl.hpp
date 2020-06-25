@@ -219,9 +219,9 @@ private:
 		float p_xtk;
 		float i_xtk;
 		float d_xtk;
-		float p_heading;
-		float i_heading;
-		float d_heading;
+		float p_h;
+		float i_h;
+		float d_h;
 	} _parameters{};			/**< local copies of interesting parameters */
 
 	struct {
@@ -297,9 +297,9 @@ private:
 		param_t p_xtk;
 		param_t i_xtk;
 		param_t d_xtk;
-		param_t p_heading;
-		param_t i_heading;
-		param_t d_heading;
+		param_t p_h;
+		param_t i_h;
+		param_t d_h;
 	} _parameter_handles{};		/**< handles for interesting parameters */
 
 	ECL_RollController				_roll_ctrl;

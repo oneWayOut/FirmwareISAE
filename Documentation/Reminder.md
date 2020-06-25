@@ -17,7 +17,7 @@ make px4_sitl gazebo_plane
 
 ## TODO
 
-1. 增加用于手动控位的参数
+1. 自动模式 极性，参数限幅；大小等， 积分器清0；
 2. change controller
 
 

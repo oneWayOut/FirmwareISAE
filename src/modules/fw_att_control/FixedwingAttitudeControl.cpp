@@ -128,9 +128,9 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_parameter_handles.p_xtk = param_find("TYT_P_XTK");
 	_parameter_handles.i_xtk = param_find("TYT_I_XTK");
 	_parameter_handles.d_xtk = param_find("TYT_D_XTK");
-	_parameter_handles.p_heading = param_find("TYT_P_HEADING");
-	_parameter_handles.i_heading = param_find("TYT_I_HEADING");
-	_parameter_handles.d_heading = param_find("TYT_D_HEADING");
+	_parameter_handles.p_h = param_find("TYT_P_H");
+	_parameter_handles.i_h = param_find("TYT_I_H");
+	_parameter_handles.d_h = param_find("TYT_D_H");
 
 	/* fetch initial parameter values */
 	parameters_update();
@@ -264,9 +264,12 @@ FixedwingAttitudeControl::parameters_update()
 	param_get(_parameter_handles.p_xtk, &_parameters.p_xtk);
 	param_get(_parameter_handles.i_xtk, &_parameters.i_xtk);
 	param_get(_parameter_handles.d_xtk, &_parameters.d_xtk);
-	param_get(_parameter_handles.p_heading, &_parameters.p_heading);
-	param_get(_parameter_handles.i_heading, &_parameters.i_heading);
-	param_get(_parameter_handles.d_heading, &_parameters.d_heading);
+	param_get(_parameter_handles.p_h, &_parameters.p_h);
+	param_get(_parameter_handles.i_h, &_parameters.i_h);
+	param_get(_parameter_handles.d_h, &_parameters.d_h);
+
+	//transfer heading unit from degree to radius
+	_parameters.heading = _parameters.heading *3.1415926536f/180;
 
 	_parameters.airspeed_disabled = (tmp == 1);
 
@@ -881,9 +884,15 @@ void FixedwingAttitudeControl::run()
 
 			float ctrlRoll, ctrlPitch, ctrlYaw; //, ctrlThrottle;
 
+			float tempXtkCtrl = 0;
+			float tempHCtrl   = 0;
+
 			ctrlRoll      =  _actuators.control[actuator_controls_s::INDEX_ROLL];
 			ctrlPitch     =  _actuators.control[actuator_controls_s::INDEX_PITCH];
 			ctrlYaw       =  _actuators.control[actuator_controls_s::INDEX_YAW];
+
+			static float xtk_integration = 0;
+			static float h_integration   = 0;
 
 
 			switch (_vehicle_status.nav_state)
@@ -900,7 +909,10 @@ void FixedwingAttitudeControl::run()
 				_actuators.control[7] = _parameters.k_sideway * manualRoll;
 
 				//just for passing  compile
-				manualPitch = manualThrottle;				
+				manualPitch = manualThrottle;
+
+				xtk_integration = 0;
+				h_integration   = 0;
 				break;
 			//manual control attitude
 			case vehicle_status_s::NAVIGATION_STATE_RATTITUDE:
@@ -912,10 +924,52 @@ void FixedwingAttitudeControl::run()
 				_actuators.control[5] = 0;
 				_actuators.control[6] = -manualYaw;
 				_actuators.control[7] = -manualYaw;
+
+				xtk_integration = 0;
+				h_integration   = 0;
 				break;
 			case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
+				float temp;
 
-				
+				//cross track pid control
+				temp = math::constrain(_att_sp.xtrack_error, -10.0f, 10.0f);
+
+				xtk_integration += deltaT* _parameters.i_xtk * temp;
+				xtk_integration = math::constrain(xtk_integration, -0.5f, 0.5f);
+				tempXtkCtrl = xtk_integration;
+				tempXtkCtrl += _parameters.p_xtk * temp;
+				//v_xtk = Ve * cos(heading) - Vn * sin(heading)
+				//todo constrain???
+				tempXtkCtrl += _parameters.d_xtk * (_global_pos.vel_e * cosf(_parameters.heading) - _global_pos.vel_n * sinf(_parameters.heading));
+				tempXtkCtrl = math::constrain(tempXtkCtrl, -1.0f, 1.0f);
+
+
+				//height pid control
+				temp = math::constrain(_distance_sensor.current_distance - _parameters.height, -5.0f, 5.0f);
+				h_integration   += deltaT* _parameters.i_h * temp;
+				h_integration = math::constrain(h_integration, -0.5f, 0.5f);
+				tempHCtrl = h_integration;
+				tempHCtrl += _parameters.p_h * temp;
+				//todo constrain???
+				tempHCtrl += _parameters.d_h * _global_pos.vel_d;
+				tempHCtrl = math::constrain(tempHCtrl, -1.0f, 1.0f);
+
+
+				//TODO test
+				#define TYT_DBUG_AUTO 1
+				#if TYT_DBUG_AUTO
+					ctrlRoll = 0;
+				#endif
+
+
+				_actuators.control[0] = (ctrlRoll + tempHCtrl)/2;
+				_actuators.control[1] = (ctrlRoll + tempHCtrl)/2;
+				_actuators.control[2] = (ctrlRoll - ctrlPitch)/2;
+				_actuators.control[3] = (ctrlRoll + ctrlPitch)/2;
+				_actuators.control[4] = tempXtkCtrl;
+				_actuators.control[5] = tempXtkCtrl;
+				_actuators.control[6] = tempHCtrl;
+				_actuators.control[7] = tempHCtrl;
 				break;
 			default :  //default to Stabilized mode control
 				_actuators.control[0] = (manualPitch + ctrlRoll)/2;
@@ -929,6 +983,9 @@ void FixedwingAttitudeControl::run()
 
 				_actuators.control[6] = -ctrlYaw;
 				_actuators.control[7] = -ctrlYaw;
+
+				xtk_integration = 0;
+				h_integration   = 0;
 				break;
 			}
 
