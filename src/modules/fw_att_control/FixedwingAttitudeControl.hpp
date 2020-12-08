@@ -207,7 +207,9 @@ private:
 
 		(ParamFloat<px4::params::TRIM_PITCH>) _param_trim_pitch,
 		(ParamFloat<px4::params::TRIM_ROLL>) _param_trim_roll,
-		(ParamFloat<px4::params::TRIM_YAW>) _param_trim_yaw
+		(ParamFloat<px4::params::TRIM_YAW>) _param_trim_yaw,
+		(ParamFloat<px4::params::TYT_K_UPDOWN>) _param_k_updown,
+		(ParamFloat<px4::params::TYT_K_SIDEWAY>) _param_k_sideway
 	)
 
 	ECL_RollController		_roll_ctrl;
@@ -229,4 +231,8 @@ private:
 	void		vehicle_land_detected_poll();
 
 	float 		get_airspeed_and_update_scaling();
+
+
+	//cai added below
+	float manualRoll, manualPitch, manualYaw, manualThrottle;
 };

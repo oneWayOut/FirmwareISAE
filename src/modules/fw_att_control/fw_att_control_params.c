@@ -765,3 +765,31 @@ PARAM_DEFINE_FLOAT(FW_DTRIM_R_FLPS, 0.0f);
  * @increment 0.01
  */
 PARAM_DEFINE_FLOAT(FW_DTRIM_P_FLPS, 0.0f);
+
+
+
+
+
+/**
+ * Manual Position control  up and down coefficient
+ * RC channel 2 is to control up and down, this coefficient is out channel 3,4 over 1,2      
+ * @group TYT control
+ * @min -1
+ * @max 1
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_K_UPDOWN, 1.0f);
+
+
+
+/**
+ * Manual Position control  up and down coefficient
+ * RC channel 2 is to control up and down, this coefficient is out channel 3,4 over 1,2      
+ * @group TYT control
+ * @min -1
+ * @max 1
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TYT_K_SIDEWAY, 1.0f);

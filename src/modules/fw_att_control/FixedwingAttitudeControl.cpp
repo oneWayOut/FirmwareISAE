@@ -157,12 +157,12 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 				if (_vcontrol_mode.flag_control_attitude_enabled) {
 					// STABILIZED mode generate the attitude setpoint from manual user inputs
 
-					_att_sp.roll_body = _manual_control_setpoint.y * radians(_param_fw_man_r_max.get()) + radians(_param_fw_rsp_off.get());
+					_att_sp.roll_body = /*_manual_control_setpoint.y * radians(_param_fw_man_r_max.get()) + */radians(_param_fw_rsp_off.get());
 					_att_sp.roll_body = constrain(_att_sp.roll_body,
 								      -radians(_param_fw_man_r_max.get()), radians(_param_fw_man_r_max.get()));
 
-					_att_sp.pitch_body = -_manual_control_setpoint.x * radians(_param_fw_man_p_max.get())
-							     + radians(_param_fw_psp_off.get());
+					_att_sp.pitch_body = /*-_manual_control_setpoint.x * radians(_param_fw_man_p_max.get())
+							     +*/ radians(_param_fw_psp_off.get());
 					_att_sp.pitch_body = constrain(_att_sp.pitch_body,
 								       -radians(_param_fw_man_p_max.get()), radians(_param_fw_man_p_max.get()));
 
@@ -183,7 +183,7 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 					_rates_sp.timestamp = hrt_absolute_time();
 					_rates_sp.roll = _manual_control_setpoint.y * radians(_param_fw_acro_x_max.get());
 					_rates_sp.pitch = -_manual_control_setpoint.x * radians(_param_fw_acro_y_max.get());
-					_rates_sp.yaw = _manual_control_setpoint.r * radians(_param_fw_acro_z_max.get());
+					_rates_sp.yaw = 0;//_manual_control_setpoint.r * radians(_param_fw_acro_z_max.get());
 					_rates_sp.thrust_body[0] = _manual_control_setpoint.z;
 
 					_rate_sp_pub.publish(_rates_sp);
@@ -199,6 +199,11 @@ FixedwingAttitudeControl::vehicle_manual_poll()
 					_actuators.control[actuator_controls_s::INDEX_THROTTLE] = _manual_control_setpoint.z;
 				}
 			}
+
+			manualRoll     = _manual_control_setpoint.y * _param_fw_man_r_sc.get() + _param_trim_roll.get();
+			manualPitch    = -_manual_control_setpoint.x * _param_fw_man_p_sc.get() + _param_trim_pitch.get();
+			manualYaw      = _manual_control_setpoint.r * _param_fw_man_y_sc.get() + _param_trim_yaw.get();
+			manualThrottle = _manual_control_setpoint.z;
 		}
 	}
 }
@@ -549,9 +554,9 @@ void FixedwingAttitudeControl::Run()
 					_actuators.control[actuator_controls_s::INDEX_YAW] = (PX4_ISFINITE(yaw_u)) ? yaw_u + trim_yaw : trim_yaw;
 
 					/* add in manual rudder control in manual modes */
-					if (_vcontrol_mode.flag_control_manual_enabled) {
-						_actuators.control[actuator_controls_s::INDEX_YAW] += _manual_control_setpoint.r;
-					}
+					// if (_vcontrol_mode.flag_control_manual_enabled) {
+					// 	_actuators.control[actuator_controls_s::INDEX_YAW] += _manual_control_setpoint.r;
+					// }
 
 					if (!PX4_ISFINITE(yaw_u)) {
 						_yaw_ctrl.reset_integrator();
@@ -632,11 +637,63 @@ void FixedwingAttitudeControl::Run()
 		_actuators.control[actuator_controls_s::INDEX_YAW] += _param_fw_rll_to_yaw_ff.get()
 				* constrain(_actuators.control[actuator_controls_s::INDEX_ROLL], -1.0f, 1.0f);
 
-		_actuators.control[actuator_controls_s::INDEX_FLAPS] = _flaps_applied;
-		_actuators.control[5] = _manual_control_setpoint.aux1;
-		_actuators.control[actuator_controls_s::INDEX_AIRBRAKES] = _flaperons_applied;
-		// FIXME: this should use _vcontrol_mode.landing_gear_pos in the future
-		_actuators.control[7] = _manual_control_setpoint.aux3;
+		if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_MANUAL)
+		{
+			manualYaw = _actuators.control[actuator_controls_s::INDEX_YAW];
+		}
+
+
+
+		switch (_vehicle_status.nav_state)
+		{
+		//manual mode control, control position
+		case vehicle_status_s::NAVIGATION_STATE_MANUAL:
+			_actuators.control[0] = manualPitch;
+			_actuators.control[1] = -manualPitch;
+			_actuators.control[2] = _param_k_updown.get() * manualPitch;
+			_actuators.control[3] = -_param_k_updown.get() * manualPitch;
+			_actuators.control[4] = manualRoll;
+			_actuators.control[5] = manualRoll;
+			_actuators.control[6] = _param_k_sideway.get() * manualRoll;
+			_actuators.control[7] = _param_k_sideway.get() * manualRoll;
+
+			//just for passing  compile
+			manualPitch = manualThrottle;				
+			break;
+		//manual control attitude
+		case vehicle_status_s::NAVIGATION_STATE_RATTITUDE:
+			_actuators.control[0] = manualRoll;
+			_actuators.control[1] = manualRoll;
+			_actuators.control[2] = (manualRoll - manualPitch)/2;
+			_actuators.control[3] = (manualRoll + manualPitch)/2;
+			_actuators.control[4] = 0;
+			_actuators.control[5] = 0;
+			_actuators.control[6] = -manualYaw;
+			_actuators.control[7] = -manualYaw;
+			break;
+		case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
+			break;
+		default :  //default to Stabilized mode control
+			float ctrlRoll, ctrlPitch, ctrlYaw; //, ctrlThrottle;
+
+			ctrlRoll      =  _actuators.control[actuator_controls_s::INDEX_ROLL];
+			ctrlPitch     =  _actuators.control[actuator_controls_s::INDEX_PITCH];
+			ctrlYaw       =  _actuators.control[actuator_controls_s::INDEX_YAW];
+			//ctrlThrottle  =  _actuators.control[actuator_controls_s::INDEX_THROTTLE];
+
+			_actuators.control[0] = (manualPitch + ctrlRoll)/2;
+			_actuators.control[1] = (-manualPitch + ctrlRoll)/2;
+
+			_actuators.control[2] = (-ctrlPitch + ctrlRoll)/2;
+			_actuators.control[3] = (ctrlPitch + ctrlRoll)/2;
+
+			_actuators.control[4] = manualRoll;
+			_actuators.control[5] = manualRoll;
+
+			_actuators.control[6] = -ctrlYaw;
+			_actuators.control[7] = -ctrlYaw;
+			break;
+		}
 
 		/* lazily publish the setpoint only once available */
 		_actuators.timestamp = hrt_absolute_time();
