@@ -136,9 +136,9 @@ void
 FixedwingAttitudeControl::vehicle_manual_poll()
 {
 	const bool is_tailsitter_transition = _is_tailsitter && _vehicle_status.in_transition_mode;
-	const bool is_fixed_wing = _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING;
+	//const bool is_fixed_wing = _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING;
 
-	if (_vcontrol_mode.flag_control_manual_enabled && (!is_tailsitter_transition || is_fixed_wing)) {
+	if (_vcontrol_mode.flag_control_manual_enabled && (!is_tailsitter_transition)) {
 
 		// Always copy the new manual setpoint, even if it wasn't updated, to fill the _actuators with valid values
 		if (_manual_control_setpoint_sub.copy(&_manual_control_setpoint)) {
@@ -438,8 +438,10 @@ void FixedwingAttitudeControl::Run()
 			control_input.body_x_rate = rollspeed;
 			control_input.body_y_rate = pitchspeed;
 			control_input.body_z_rate = yawspeed;
-			control_input.roll_setpoint = _att_sp.roll_body;
-			control_input.pitch_setpoint = _att_sp.pitch_body;
+			//侯晓磊修改
+			//在offboard模式下，不把通过mavros的setpoint_raw/attitude发过来的pitch和roll作为姿态控制的参考输入，应保持0姿态
+			control_input.roll_setpoint = 0;//_att_sp.roll_body;
+			control_input.pitch_setpoint = 0;//_att_sp.pitch_body;
 			control_input.yaw_setpoint = _att_sp.yaw_body;
 			control_input.airspeed_min = _param_fw_airspd_min.get();
 			control_input.airspeed_max = _param_fw_airspd_max.get();
@@ -680,18 +682,26 @@ void FixedwingAttitudeControl::Run()
 			ctrlPitch     =  _actuators.control[actuator_controls_s::INDEX_PITCH];
 			ctrlYaw       =  _actuators.control[actuator_controls_s::INDEX_YAW];
 			//ctrlThrottle  =  _actuators.control[actuator_controls_s::INDEX_THROTTLE];
+			
+			//侯晓磊修改 
+			//获取通过mavros在offboard模式下发来的setpoint_raw/attitude的pitch和roll作为上升下降以及左右移动的舵偏角
+			float pitch_mavros = _att_sp.pitch_body; 
+			float roll_mavros = _att_sp.roll_body;
+			manualPitch = pitch_mavros/float(3.14)*float(1);
+			manualRoll = roll_mavros/float(3.14)*float(1);
+			//调整混控比例，ctrlRoll和ctrlPitch为姿态控制器输出，manualPitch和manualRoll为companion computer的offboard输入
+			_actuators.control[0] = (-manualPitch*1 + ctrlRoll);
+			_actuators.control[1] = (manualPitch*1 + ctrlRoll);
 
-			_actuators.control[0] = (manualPitch + ctrlRoll)/2;
-			_actuators.control[1] = (-manualPitch + ctrlRoll)/2;
+			_actuators.control[2] = (-ctrlPitch *2+ ctrlRoll - manualPitch*1);
+			_actuators.control[3] = (ctrlPitch *2+ ctrlRoll + manualPitch*1);
 
-			_actuators.control[2] = (-ctrlPitch + ctrlRoll)/2;
-			_actuators.control[3] = (ctrlPitch + ctrlRoll)/2;
+			_actuators.control[4] = (ctrlYaw *2+ manualRoll*1);
+			_actuators.control[5] = (ctrlYaw *2+ manualRoll*1);
 
-			_actuators.control[4] = manualRoll;
-			_actuators.control[5] = manualRoll;
+			_actuators.control[6] = (-ctrlYaw *3+ manualRoll*1);
+			_actuators.control[7] = (-ctrlYaw *3+ manualRoll*1);
 
-			_actuators.control[6] = -ctrlYaw;
-			_actuators.control[7] = -ctrlYaw;
 			break;
 		}
 
@@ -699,14 +709,19 @@ void FixedwingAttitudeControl::Run()
 		_actuators.timestamp = hrt_absolute_time();
 		_actuators.timestamp_sample = att.timestamp;
 
+
+		//侯晓磊修改
+		//始终发布控制器指令
 		/* Only publish if any of the proper modes are enabled */
+		/*
 		if (_vcontrol_mode.flag_control_rates_enabled ||
 		    _vcontrol_mode.flag_control_attitude_enabled ||
 		    _vcontrol_mode.flag_control_manual_enabled) {
 			_actuators_0_pub.publish(_actuators);
 		}
+		*/
+		_actuators_0_pub.publish(_actuators);
 	}
-
 	perf_end(_loop_perf);
 }
 
@@ -836,3 +851,4 @@ extern "C" __EXPORT int fw_att_control_main(int argc, char *argv[])
 {
 	return FixedwingAttitudeControl::main(argc, argv);
 }
+
