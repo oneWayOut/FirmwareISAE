@@ -35,6 +35,7 @@
 
 #include <vtol_att_control/vtol_type.h>
 
+
 FixedwingPositionControl::FixedwingPositionControl(bool vtol) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
@@ -680,7 +681,10 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION) {
 			/* waypoint is a plain navigation waypoint */
-			_l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
+			//_l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
+			Vector2f cur2tgt = _l1_control.get_local_planar_vector(curr_pos, curr_wp);
+
+			_l1_control.my_nav_camera(cur2tgt, curr_pos, nav_speed_2d);
 			_att_sp.roll_body = _l1_control.get_roll_setpoint();
 			_att_sp.yaw_body = _l1_control.nav_bearing();
 

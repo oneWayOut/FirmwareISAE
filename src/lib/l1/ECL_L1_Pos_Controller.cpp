@@ -200,6 +200,52 @@ ECL_L1_Pos_Controller::navigate_waypoints(const Vector2f &vector_A, const Vector
 	update_roll_setpoint();
 }
 
+
+
+/**
+ * @param tgtVecXy:  plane to target vector in Local NED frame;
+ * @param vector_curr_position
+ * @param ground_speed_vector
+ */
+void ECL_L1_Pos_Controller::my_nav_camera(const Vector2f &tgtVecXy,
+		const Vector2f &vector_curr_position, const Vector2f &ground_speed_vector)
+{
+	/* calculate crosstrack error (output only) */
+	_crosstrack_error = 0;
+
+	/* enforce a minimum ground speed of 0.1 m/s to avoid singularities */
+	float ground_speed = math::max(ground_speed_vector.length(), 0.1f);
+
+	/* calculate the L1 length required for the desired period */
+	_L1_distance = _L1_ratio * ground_speed;
+
+
+	/* velocity across / orthogonal to line */
+	float xtrack_vel = ground_speed_vector % tgtVecXy;
+	/* velocity along line */
+	float ltrack_vel = ground_speed_vector * tgtVecXy;
+	float eta = atan2f(xtrack_vel, ltrack_vel);
+	/* bearing from current position to L1 point */
+	_nav_bearing = atan2f(tgtVecXy(1), tgtVecXy(0));
+	_target_bearing = _nav_bearing;
+
+
+	/* limit angle to +-90 degrees */
+	eta = math::constrain(eta, (-M_PI_F) / 2.0f, +M_PI_F / 2.0f);
+	_lateral_accel = _K_L1 * ground_speed * ground_speed / _L1_distance * sinf(eta);
+
+	/* flying to waypoints, not circling them */
+	_circle_mode = false;
+
+	/* the bearing angle, in NED frame */
+	_bearing_error = eta;
+
+	update_roll_setpoint();
+}
+
+
+
+
 void
 ECL_L1_Pos_Controller::navigate_loiter(const Vector2f &vector_A, const Vector2f &vector_curr_position, float radius,
 				       int8_t loiter_direction, const Vector2f &ground_speed_vector)

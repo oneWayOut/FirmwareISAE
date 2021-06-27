@@ -146,6 +146,10 @@ public:
 	void navigate_waypoints(const matrix::Vector2f &vector_A, const matrix::Vector2f &vector_B,
 				const matrix::Vector2f &vector_curr_position, const matrix::Vector2f &ground_speed);
 
+
+
+	void my_nav_camera(const matrix::Vector2f &tgtVecXy, const matrix::Vector2f &vector_curr_position, const matrix::Vector2f &ground_speed_vector);
+
 	/**
 	 * Navigate on an orbit around a loiter waypoint.
 	 *
@@ -203,6 +207,20 @@ public:
 	 */
 	void set_dt(float dt) { _dt = dt;}
 
+	/**
+	 * Convert a 2D vector from WGS84 to planar coordinates.
+	 *
+	 * This converts from latitude and longitude to planar
+	 * coordinates with (0,0) being at the position of ref and
+	 * returns a vector in meters towards wp.
+	 *
+	 * @param ref The reference position in WGS84 coordinates
+	 * @param wp The point to convert to into the local coordinates, in WGS84 coordinates
+	 * @return The vector in meters pointing from the reference position to the coordinates
+	 */
+	matrix::Vector2f get_local_planar_vector(const matrix::Vector2f &origin, const matrix::Vector2f &target) const;
+
+
 private:
 
 	float _lateral_accel{0.0f};		///< Lateral acceleration setpoint in m/s^2
@@ -224,18 +242,6 @@ private:
 	float _roll_slew_rate{0.0f};	///< roll angle setpoint slew rate limit in rad/s
 	float _dt{0};				///< control loop time in seconds
 
-	/**
-	 * Convert a 2D vector from WGS84 to planar coordinates.
-	 *
-	 * This converts from latitude and longitude to planar
-	 * coordinates with (0,0) being at the position of ref and
-	 * returns a vector in meters towards wp.
-	 *
-	 * @param ref The reference position in WGS84 coordinates
-	 * @param wp The point to convert to into the local coordinates, in WGS84 coordinates
-	 * @return The vector in meters pointing from the reference position to the coordinates
-	 */
-	matrix::Vector2f get_local_planar_vector(const matrix::Vector2f &origin, const matrix::Vector2f &target) const;
 
 	/**
 	 * Update roll angle setpoint. This will also apply slew rate limits if set.
