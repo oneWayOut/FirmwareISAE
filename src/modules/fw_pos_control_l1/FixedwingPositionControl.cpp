@@ -35,6 +35,27 @@
 
 #include <vtol_att_control/vtol_type.h>
 
+/**
+ * Test Code
+ */
+
+
+
+/**
+ * [getVecInNed description]
+ * @param  eulers [current euler angles]
+ * @param  V1     [Vector in Current Body Frame]
+ * @return        [the Same Vector in local NED Frame]
+ */
+Vector3f getVecInNed(const Eulerf &eulers, const Vector3f & V1)
+{
+	Dcmf DCM1G(eulers);
+
+	return  DCM1G * V1;
+}
+
+
+
 
 FixedwingPositionControl::FixedwingPositionControl(bool vtol) :
 	ModuleParams(nullptr),
@@ -682,13 +703,19 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION) {
 			/* waypoint is a plain navigation waypoint */
 			//_l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
-			Vector2f cur2tgt = _l1_control.get_local_planar_vector(curr_pos, curr_wp);
+			Vector2f curToTgt_2f = _l1_control.get_local_planar_vector(curr_pos, curr_wp);
 
-			_l1_control.my_nav_camera(cur2tgt, curr_pos, nav_speed_2d);
+			Vector3f curToTgt_3f(curToTgt_2f(0), curToTgt_2f(1), _current_altitude-pos_sp_curr.alt);
+
+
+			_l1_control.my_nav_camera(curToTgt_2f, curr_pos, nav_speed_2d);
 			_att_sp.roll_body = _l1_control.get_roll_setpoint();
 			_att_sp.yaw_body = _l1_control.nav_bearing();
 
-			tecs_update_pitch_throttle(now, pos_sp_curr.alt,
+			//printf("curr.alt=%8.4f\n", (double)pos_sp_curr.alt);
+
+			//TODO: control throttle and pitch?????
+			tecs_update_pitch_throttle(now, _current_altitude - curToTgt_3f(2),
 						   calculate_target_airspeed(mission_airspeed, ground_speed),
 						   radians(_param_fw_p_lim_min.get()) - radians(_param_fw_psp_off.get()),
 						   radians(_param_fw_p_lim_max.get()) - radians(_param_fw_psp_off.get()),
