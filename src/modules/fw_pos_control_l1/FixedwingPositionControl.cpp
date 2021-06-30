@@ -35,11 +35,20 @@
 
 #include <vtol_att_control/vtol_type.h>
 
+
+#ifdef __PX4_NUTTX
+	#define _USE_UART_COM 1
+	#include <termios.h>
+#else
+	#define _USE_UART_COM 0
+#endif
+
+
+
+
 /**
  * Test Code
  */
-
-
 
 /**
  * [getVecInNed description]
@@ -59,12 +68,14 @@ Vector3f getVecInNed(const Eulerf &eulers, const Vector3f & V1)
 
 FixedwingPositionControl::FixedwingPositionControl(bool vtol) :
 	ModuleParams(nullptr),
-	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
+	//WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
 	_attitude_sp_pub(vtol ? ORB_ID(fw_virtual_attitude_setpoint) : ORB_ID(vehicle_attitude_setpoint)),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")),
 	_launchDetector(this),
 	_runway_takeoff(this)
 {
+	PX4_INFO("Pos Construct function\n");
+
 	if (vtol) {
 		_param_handle_airspeed_trans = param_find("VT_ARSP_TRANS");
 
@@ -75,8 +86,8 @@ FixedwingPositionControl::FixedwingPositionControl(bool vtol) :
 		_vtol_tailsitter = (static_cast<vtol_type>(vt_type) == vtol_type::TAILSITTER);
 	}
 
-	// limit to 50 Hz
-	_local_pos_sub.set_interval_ms(20);
+	// // limit to 50 Hz
+	// _local_pos_sub.set_interval_ms(20);
 
 	/* fetch initial parameter values */
 	parameters_update();
@@ -87,16 +98,7 @@ FixedwingPositionControl::~FixedwingPositionControl()
 	perf_free(_loop_perf);
 }
 
-bool
-FixedwingPositionControl::init()
-{
-	if (!_local_pos_sub.registerCallback()) {
-		PX4_ERR("vehicle local position callback registration failed!");
-		return false;
-	}
 
-	return true;
-}
 
 int
 FixedwingPositionControl::parameters_update()
@@ -1516,124 +1518,233 @@ FixedwingPositionControl::handle_command()
 }
 
 void
-FixedwingPositionControl::Run()
+FixedwingPositionControl::run()
 {
-	if (should_exit()) {
-		_local_pos_sub.unregisterCallback();
-		exit_and_cleanup();
-		return;
+
+	_local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+	
+	/* rate-limit position subscription to 20 Hz / 50 ms */
+	orb_set_interval(_local_pos_sub, 50);
+
+	/* Setup of loop */
+	fds[0].fd = _local_pos_sub;
+	fds[0].events = POLLIN;
+
+#if _USE_UART_COM
+	fds[1].fd = open("/dev/ttyS2", O_RDWR | O_NOCTTY);  //file name may be different
+	fds[1].events = POLLIN;
+
+
+	if(fds[1].fd<=0) {
+		PX4_ERR("can not open ttyS2!");
 	}
 
-	perf_begin(_loop_perf);
+	struct termios uart_config;
+	int termios_state;
 
-	/* only run controller if position changed */
+	/* Initialize the uart config */
+	if ((termios_state = tcgetattr(fds[1].fd, &uart_config)) < 0) {
+		PX4_ERR("ERR GET CONF %s: %d\n", "/dev/ttyS2", termios_state);
+		close(fds[1].fd);
+		return ;
+	}
 
-	if (_local_pos_sub.update(&_local_pos)) {
+	/* Clear ONLCR flag (which appends a CR for every LF) */
+	uart_config.c_oflag &= ~ONLCR;
 
-		// check for parameter updates
-		if (_parameter_update_sub.updated()) {
-			// clear update
-			parameter_update_s pupdate;
-			_parameter_update_sub.copy(&pupdate);
 
-			// update parameters from storage
-			parameters_update();
+	/* Set baud rate */
+	if (cfsetispeed(&uart_config, B57600) < 0 || cfsetospeed(&uart_config, B57600) < 0) {
+		PX4_ERR("ERR SET BAUD %s: %d\n", "/dev/ttyS2", termios_state);
+		close(fds[1].fd);
+		return ;
+	}
+
+	uart_config.c_cflag &= ~CRTSCTS;
+
+	if ((termios_state = tcsetattr(fds[1].fd, TCSANOW, &uart_config)) < 0) {
+		PX4_WARN("ERR SET CONF %s\n", "/dev/ttyS2");
+		close(fds[1].fd);
+		return ;
+	}
+
+	printf("cai init ttyS2 OK\n");
+#endif
+
+	while (!should_exit()) {
+
+		perf_begin(_loop_perf);
+
+
+
+		/* only run controller if position changed */
+
+		/* wait for up to 100ms for data */
+	#if _USE_UART_COM
+		int pret = px4_poll(&fds[0], 2, 100);
+	#else
+		int pret = px4_poll(&fds[0], 1, 100);
+	#endif
+
+		if (pret <= 0) {
+			/* this is undesirable but not much we can do - might want to flag unhappy status */
+			PX4_ERR("poll error %d, %d", pret, errno);
+			px4_usleep(10000);
+			continue;
 		}
 
-		vehicle_global_position_s gpos;
+	#if _USE_UART_COM
+		static unsigned int myCounter = 0;
+		char buf[64];
 
-		if (_global_pos_sub.update(&gpos)) {
-			_current_latitude = gpos.lat;
-			_current_longitude = gpos.lon;
-		}
+		if ((fds[1].revents & POLLIN))
+		{
+			printf("get data\n");
+			//block call
+			pret = read(fds[1].fd, buf, 64);
 
-		_current_altitude = -_local_pos.z + _local_pos.ref_alt; // Altitude AMSL in meters
+			if (pret>0)
+			{
+				PX4_INFO("cai read ttyS2: %d bytes", pret);
 
-		// handle estimator reset events. we only adjust setpoins for manual modes
-		if (_control_mode.flag_control_manual_enabled) {
-			if (_control_mode.flag_control_altitude_enabled && _local_pos.vz_reset_counter != _alt_reset_counter) {
-				_hold_alt += -_local_pos.delta_z;
-				// make TECS accept step in altitude and demanded altitude
-				_tecs.handle_alt_step(-_local_pos.delta_z, _current_altitude);
-			}
+				for (ssize_t i = 0; i < pret; ++i)
+				{
+					printf("%c", buf[i]);
+					switch(buf[i])  //Actually only one character
+					{
+					case '0':
+						mavlink_log_critical(&_mavlink_log_pub, "PC Power ON");
+						break;
+					case '1':
+					case '2':
+					case '3':
+						mavlink_log_critical(&_mavlink_log_pub, "Tgt Idx = %c", buf[i]);
 
-			// adjust navigation waypoints in position control mode
-			if (_control_mode.flag_control_altitude_enabled && _control_mode.flag_control_velocity_enabled
-			    && _local_pos.vxy_reset_counter != _pos_reset_counter) {
-
-				// reset heading hold flag, which will re-initialise position control
-				_hdg_hold_enabled = false;
-			}
-		}
-
-		// update the reset counters in any case
-		_alt_reset_counter = _local_pos.vz_reset_counter;
-		_pos_reset_counter = _local_pos.vxy_reset_counter;
-
-		airspeed_poll();
-		_manual_control_setpoint_sub.update(&_manual_control_setpoint);
-		_pos_sp_triplet_sub.update(&_pos_sp_triplet);
-		vehicle_attitude_poll();
-		vehicle_command_poll();
-		vehicle_control_mode_poll();
-		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
-		_vehicle_status_sub.update(&_vehicle_status);
-		_vehicle_acceleration_sub.update();
-		_vehicle_rates_sub.update();
-
-		Vector2f curr_pos((float)_current_latitude, (float)_current_longitude);
-		Vector2f ground_speed(_local_pos.vx, _local_pos.vy);
-
-		//Convert Local setpoints to global setpoints
-		if (_control_mode.flag_control_offboard_enabled) {
-			if (!globallocalconverter_initialized()) {
-				globallocalconverter_init(_local_pos.ref_lat, _local_pos.ref_lon,
-							  _local_pos.ref_alt, _local_pos.ref_timestamp);
-
-			} else {
-				globallocalconverter_toglobal(_pos_sp_triplet.current.x, _pos_sp_triplet.current.y, _pos_sp_triplet.current.z,
-							      &_pos_sp_triplet.current.lat, &_pos_sp_triplet.current.lon, &_pos_sp_triplet.current.alt);
-			}
-		}
-
-		/*
-		 * Attempt to control position, on success (= sensors present and not in manual mode),
-		 * publish setpoint.
-		 */
-		if (control_position(_local_pos.timestamp, curr_pos, ground_speed, _pos_sp_triplet.previous, _pos_sp_triplet.current,
-				     _pos_sp_triplet.next)) {
-
-
-			// add attitude setpoint offsets
-			_att_sp.roll_body += radians(_param_fw_rsp_off.get());
-			_att_sp.pitch_body += radians(_param_fw_psp_off.get());
-
-			if (_control_mode.flag_control_manual_enabled) {
-				_att_sp.roll_body = constrain(_att_sp.roll_body, -radians(_param_fw_man_r_max.get()),
-							      radians(_param_fw_man_r_max.get()));
-				_att_sp.pitch_body = constrain(_att_sp.pitch_body, -radians(_param_fw_man_p_max.get()),
-							       radians(_param_fw_man_p_max.get()));
-			}
-
-			if (_control_mode.flag_control_offboard_enabled ||
-			    _control_mode.flag_control_position_enabled ||
-			    _control_mode.flag_control_velocity_enabled ||
-			    _control_mode.flag_control_acceleration_enabled ||
-			    _control_mode.flag_control_altitude_enabled) {
-
-				const Quatf q(Eulerf(_att_sp.roll_body, _att_sp.pitch_body, _att_sp.yaw_body));
-				q.copyTo(_att_sp.q_d);
-
-				_att_sp.timestamp = hrt_absolute_time();
-				_attitude_sp_pub.publish(_att_sp);
-
-				// only publish status in full FW mode
-				if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING
-				    || _vehicle_status.in_transition_mode) {
-					status_publish();
-
+						//_tgtIdx = buf[i] - '0';
+						break;
+					case '4':
+						mavlink_log_critical(&_mavlink_log_pub, "Tgt not found");
+						break;
+					}
 				}
 			}
+		}
+
+		myCounter++;
+	#endif
+
+
+		if (fds[0].revents & POLLIN) {
+			//printf("updated postion\n");
+			/* success, local pos is available */
+			orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
+
+			// check for parameter updates
+			if (_parameter_update_sub.updated()) {
+				// clear update
+				parameter_update_s pupdate;
+				_parameter_update_sub.copy(&pupdate);
+
+				// update parameters from storage
+				parameters_update();
+			}
+
+			vehicle_global_position_s gpos;
+
+			if (_global_pos_sub.update(&gpos)) {
+				_current_latitude = gpos.lat;
+				_current_longitude = gpos.lon;
+			}
+
+			_current_altitude = -_local_pos.z + _local_pos.ref_alt; // Altitude AMSL in meters
+
+			// handle estimator reset events. we only adjust setpoins for manual modes
+			if (_control_mode.flag_control_manual_enabled) {
+				if (_control_mode.flag_control_altitude_enabled && _local_pos.vz_reset_counter != _alt_reset_counter) {
+					_hold_alt += -_local_pos.delta_z;
+					// make TECS accept step in altitude and demanded altitude
+					_tecs.handle_alt_step(-_local_pos.delta_z, _current_altitude);
+				}
+
+				// adjust navigation waypoints in position control mode
+				if (_control_mode.flag_control_altitude_enabled && _control_mode.flag_control_velocity_enabled
+				    && _local_pos.vxy_reset_counter != _pos_reset_counter) {
+
+					// reset heading hold flag, which will re-initialise position control
+					_hdg_hold_enabled = false;
+				}
+			}
+
+			// update the reset counters in any case
+			_alt_reset_counter = _local_pos.vz_reset_counter;
+			_pos_reset_counter = _local_pos.vxy_reset_counter;
+
+			airspeed_poll();
+			_manual_control_setpoint_sub.update(&_manual_control_setpoint);
+			_pos_sp_triplet_sub.update(&_pos_sp_triplet);
+			vehicle_attitude_poll();
+			vehicle_command_poll();
+			vehicle_control_mode_poll();
+			_vehicle_land_detected_sub.update(&_vehicle_land_detected);
+			_vehicle_status_sub.update(&_vehicle_status);
+			_vehicle_acceleration_sub.update();
+			_vehicle_rates_sub.update();
+
+			Vector2f curr_pos((float)_current_latitude, (float)_current_longitude);
+			Vector2f ground_speed(_local_pos.vx, _local_pos.vy);
+
+			//Convert Local setpoints to global setpoints
+			if (_control_mode.flag_control_offboard_enabled) {
+				if (!globallocalconverter_initialized()) {
+					globallocalconverter_init(_local_pos.ref_lat, _local_pos.ref_lon,
+								  _local_pos.ref_alt, _local_pos.ref_timestamp);
+
+				} else {
+					globallocalconverter_toglobal(_pos_sp_triplet.current.x, _pos_sp_triplet.current.y, _pos_sp_triplet.current.z,
+								      &_pos_sp_triplet.current.lat, &_pos_sp_triplet.current.lon, &_pos_sp_triplet.current.alt);
+				}
+			}
+
+			/*
+			 * Attempt to control position, on success (= sensors present and not in manual mode),
+			 * publish setpoint.
+			 */
+			if (control_position(_local_pos.timestamp, curr_pos, ground_speed, _pos_sp_triplet.previous, _pos_sp_triplet.current,
+					     _pos_sp_triplet.next)) {
+
+
+				// add attitude setpoint offsets
+				_att_sp.roll_body += radians(_param_fw_rsp_off.get());
+				_att_sp.pitch_body += radians(_param_fw_psp_off.get());
+
+				if (_control_mode.flag_control_manual_enabled) {
+					_att_sp.roll_body = constrain(_att_sp.roll_body, -radians(_param_fw_man_r_max.get()),
+								      radians(_param_fw_man_r_max.get()));
+					_att_sp.pitch_body = constrain(_att_sp.pitch_body, -radians(_param_fw_man_p_max.get()),
+								       radians(_param_fw_man_p_max.get()));
+				}
+
+				if (_control_mode.flag_control_offboard_enabled ||
+				    _control_mode.flag_control_position_enabled ||
+				    _control_mode.flag_control_velocity_enabled ||
+				    _control_mode.flag_control_acceleration_enabled ||
+				    _control_mode.flag_control_altitude_enabled) {
+
+					const Quatf q(Eulerf(_att_sp.roll_body, _att_sp.pitch_body, _att_sp.yaw_body));
+					q.copyTo(_att_sp.q_d);
+
+					_att_sp.timestamp = hrt_absolute_time();
+					_attitude_sp_pub.publish(_att_sp);
+
+					// only publish status in full FW mode
+					if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING
+					    || _vehicle_status.in_transition_mode) {
+						status_publish();
+
+					}
+				}
+			}
+
 		}
 
 		perf_end(_loop_perf);
@@ -1804,33 +1915,34 @@ FixedwingPositionControl::tecs_update_pitch_throttle(const hrt_abstime &now, flo
 
 int FixedwingPositionControl::task_spawn(int argc, char *argv[])
 {
-	bool vtol = false;
 
-	if (argc > 1) {
-		if (strcmp(argv[1], "vtol") == 0) {
-			vtol = true;
-		}
+		/* start the task */
+	_task_id = px4_task_spawn_cmd("rover_pos_ctrl",
+				      SCHED_DEFAULT,
+				      SCHED_PRIORITY_POSITION_CONTROL,
+				      1700,
+				      (px4_main_t)&run_trampoline,
+				      nullptr);
+
+	if (_task_id < 0) {
+		warn("task start failed");
+		return -errno;
 	}
 
-	FixedwingPositionControl *instance = new FixedwingPositionControl(vtol);
+	return OK;
+}
 
-	if (instance) {
-		_object.store(instance);
-		_task_id = task_id_is_work_queue;
 
-		if (instance->init()) {
-			return PX4_OK;
-		}
+FixedwingPositionControl * FixedwingPositionControl::instantiate(int argc, char *argv[])
+{
 
-	} else {
+	FixedwingPositionControl *instance = new FixedwingPositionControl(false);
+
+	if (instance == nullptr) {
 		PX4_ERR("alloc failed");
 	}
 
-	delete instance;
-	_object.store(nullptr);
-	_task_id = -1;
-
-	return PX4_ERROR;
+	return instance;
 }
 
 int FixedwingPositionControl::custom_command(int argc, char *argv[])

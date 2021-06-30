@@ -65,7 +65,7 @@
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/posix.h>
-#include <px4_platform_common/px4_work_queue/WorkItem.hpp>
+//#include <px4_platform_common/px4_work_queue/WorkItem.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
@@ -125,8 +125,7 @@ static constexpr float MANUAL_THROTTLE_CLIMBOUT_THRESH =
 	0.85f; ///< a throttle / pitch input above this value leads to the system switching to climbout mode
 static constexpr float ALTHOLD_EPV_RESET_THRESH = 5.0f;
 
-class FixedwingPositionControl final : public ModuleBase<FixedwingPositionControl>, public ModuleParams,
-	public px4::WorkItem
+class FixedwingPositionControl final : public ModuleBase<FixedwingPositionControl>, public ModuleParams
 {
 public:
 	FixedwingPositionControl(bool vtol = false);
@@ -136,19 +135,27 @@ public:
 	static int task_spawn(int argc, char *argv[]);
 
 	/** @see ModuleBase */
+	static FixedwingPositionControl * instantiate(int argc, char *argv[]);
+
+	/** @see ModuleBase */
 	static int custom_command(int argc, char *argv[]);
 
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
-	bool init();
+	/** @see ModuleBase::run() */
+	void run() override;
+
+	//bool init();
 
 private:
-	void Run() override;
+	//void Run() override;
 
 	orb_advert_t	_mavlink_log_pub{nullptr};
 
-	uORB::SubscriptionCallbackWorkItem _local_pos_sub{this, ORB_ID(vehicle_local_position)};
+	int		_local_pos_sub{-1};		/**< local position subscription */
+
+	//uORB::SubscriptionCallbackWorkItem _local_pos_sub{this, ORB_ID(vehicle_local_position)};
 
 	uORB::Subscription _control_mode_sub{ORB_ID(vehicle_control_mode)};		///< control mode subscription
 	uORB::Subscription _global_pos_sub{ORB_ID(vehicle_global_position)};
@@ -271,6 +278,10 @@ private:
 
 	param_t _param_handle_airspeed_trans{PARAM_INVALID};
 	float _param_airspeed_trans{NAN};
+
+
+	/* wakeup source(s) */
+	px4_pollfd_struct_t fds[2];
 
 	// Update our local parameter cache.
 	int		parameters_update();
