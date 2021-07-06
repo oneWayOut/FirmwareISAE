@@ -44,6 +44,10 @@
 #endif
 
 
+static short xyz[3] = {-4000, -4000, -4000}; //xyz: right down forward, unit=cm; xy: [-2000, 2000], z:[0, 2000]
+//TODO: z> sqrt(x*x, y*y)
+
+
 
 
 /**
@@ -705,9 +709,28 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION) {
 			/* waypoint is a plain navigation waypoint */
 			//_l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
+#if _USE_UART_COM
+			//TODO:  target gps or target camera xyz as setpoint_position
+			Vector3f curToTgt_3f;
+			Vector2f curToTgt_2f;
+			if (xyz[0]>-20000 && xyz[0]< 2000) //valid xyz
+			{
+				curToTgt_3f = _R_nb * Vector3f(xyz[2]/100.0f, xyz[0]/100.0f, xyz[1]/100.0f);
+				curToTgt_2f(0) = curToTgt_3f(0);
+				curToTgt_2f(1) = curToTgt_3f(1);
+			}
+			else
+			{
+				//TODO:
+			}
+
+			
+
+#else
 			Vector2f curToTgt_2f = _l1_control.get_local_planar_vector(curr_pos, curr_wp);
 
 			Vector3f curToTgt_3f(curToTgt_2f(0), curToTgt_2f(1), _current_altitude-pos_sp_curr.alt);
+#endif
 
 
 			_l1_control.my_nav_camera(curToTgt_2f, curr_pos, nav_speed_2d);
@@ -1536,6 +1559,7 @@ FixedwingPositionControl::run()
 
 
 	if(fds[1].fd<=0) {
+		mavlink_log_critical(&_mavlink_log_pub, "can not open ttyS2!");
 		PX4_ERR("can not open ttyS2!");
 	}
 
@@ -1545,6 +1569,7 @@ FixedwingPositionControl::run()
 	/* Initialize the uart config */
 	if ((termios_state = tcgetattr(fds[1].fd, &uart_config)) < 0) {
 		PX4_ERR("ERR GET CONF %s: %d\n", "/dev/ttyS2", termios_state);
+		mavlink_log_critical(&_mavlink_log_pub, "ERR GET CONF %s: %d\n", "/dev/ttyS2", termios_state);
 		close(fds[1].fd);
 		return ;
 	}
@@ -1556,6 +1581,7 @@ FixedwingPositionControl::run()
 	/* Set baud rate */
 	if (cfsetispeed(&uart_config, B57600) < 0 || cfsetospeed(&uart_config, B57600) < 0) {
 		PX4_ERR("ERR SET BAUD %s: %d\n", "/dev/ttyS2", termios_state);
+		mavlink_log_critical(&_mavlink_log_pub, "ERR SET BAUD %s: %d\n", "/dev/ttyS2", termios_state);
 		close(fds[1].fd);
 		return ;
 	}
@@ -1564,11 +1590,13 @@ FixedwingPositionControl::run()
 
 	if ((termios_state = tcsetattr(fds[1].fd, TCSANOW, &uart_config)) < 0) {
 		PX4_WARN("ERR SET CONF %s\n", "/dev/ttyS2");
+		mavlink_log_critical(&_mavlink_log_pub, "ERR SET CONF %s\n", "/dev/ttyS2");
 		close(fds[1].fd);
 		return ;
 	}
 
 	printf("cai init ttyS2 OK\n");
+	mavlink_log_critical(&_mavlink_log_pub, "cai init ttyS2 OK\n");
 #endif
 
 	while (!should_exit()) {
@@ -1594,43 +1622,106 @@ FixedwingPositionControl::run()
 		}
 
 	#if _USE_UART_COM
-		static unsigned int myCounter = 0;
-		char buf[64];
+		static int testCounter = 0;
+
+		//NOTE: valid data format: 0xa5a5, short, short, short;
+		static char buf[32];  //a bit larger than needed
+		static short recvdLen = 0; //recvdLen的范围[0, 7]
+
+		xyz[0] = -4000;
+		xyz[1] = -4000;
+		xyz[2] = -4000;
+
+		bool foundDataFlag = false;
 
 		if ((fds[1].revents & POLLIN))
 		{
-			printf("get data\n");
 			//block call
-			pret = read(fds[1].fd, buf, 64);
+			pret = read(fds[1].fd, buf+recvdLen, 16);
 
-			if (pret>0)
+			mavlink_log_critical(&_mavlink_log_pub, "get data len: %d\n", pret);
+
+
+			if (pret>0 && pret<=8)
 			{
-				PX4_INFO("cai read ttyS2: %d bytes", pret);
-
-				for (ssize_t i = 0; i < pret; ++i)
+				// 3种情况
+				// 情况1: 有连续的两个0xA5;
+				for (int ix = 1; ix < recvdLen + pret; ++ix)
 				{
-					printf("%c", buf[i]);
-					switch(buf[i])  //Actually only one character
+					if (buf[ix]==0xA5 && buf[ix-1]==0xA5)
 					{
-					case '0':
-						mavlink_log_critical(&_mavlink_log_pub, "PC Power ON");
-						break;
-					case '1':
-					case '2':
-					case '3':
-						mavlink_log_critical(&_mavlink_log_pub, "Tgt Idx = %c", buf[i]);
+						if (recvdLen+pret - ix +1 >= 8) //若数据长度满足要求，则取出xyz数据，并重置recvdLen
+						{
+							memcpy(xyz, buf+ix+1, 6);  // 取到了有效数据
 
-						//_tgtIdx = buf[i] - '0';
-						break;
-					case '4':
-						mavlink_log_critical(&_mavlink_log_pub, "Tgt not found");
+							mavlink_log_critical(&_mavlink_log_pub, "xyz: %hd, %hd, %hd\n", xyz[0], xyz[1], xyz[2]);
+
+							
+							//NOTE: 查看后续数据是否还有连续的0xA5A5
+							//取出数据后，剩余字节数为: recvdLen+pret-ix-7
+							recvdLen = recvdLen+pret-ix-7;
+							memcpy(buf, buf+ix+7, recvdLen);
+							if (recvdLen>=2)
+							{
+								if (!(buf[0]==0xA5 && buf[1]==0xA5))
+								{
+									if (buf[recvdLen-1] == 0xA5)
+									{
+										recvdLen = 1;
+										buf[0] = 0xA5;
+									}
+								}
+							}
+							else if (buf[recvdLen-1] == 0xA5)
+							{
+								recvdLen = 1;
+								buf[0] = 0xA5;
+							}
+							else
+							{
+								recvdLen = 0;
+							}
+							
+						}
+						else //数据不够长，将数据移动至头部;
+						{
+							recvdLen = recvdLen+pret - ix +1;
+							memcpy(buf, buf+ix-1, recvdLen);
+
+							// recvdLen的范围是[2, 7];
+						}
+						foundDataFlag = true;
 						break;
 					}
 				}
+				if (!foundDataFlag)
+				{
+					//情况2: 最后一个为A5;
+					if (buf[recvdLen+pret-1] == 0xA5)
+					{
+						recvdLen = 1;
+						buf[0]   = 0xA5;
+					}
+					else //情况3: 整个接数据中均无A5:清空已接受数据
+					{
+						recvdLen= 0;
+					}
+				}
 			}
+
+
+
+			//TODO, use the x, y, z data;
+			if (testCounter==40)
+			{
+				pret    = write(fds[1].fd, "poweroff", 9);
+				testCounter = 0;
+			}
+
+			testCounter++;
+			
 		}
 
-		myCounter++;
 	#endif
 
 
